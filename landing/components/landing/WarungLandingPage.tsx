@@ -27,7 +27,11 @@ import {
   Zap,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { WARUNG_APP_URL } from "@/lib/constants";
+import {
+  WARUNG_AGENT_URL,
+  WARUNG_APP_URL,
+  WARUNG_DOCS_URL,
+} from "@/lib/constants";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -1415,6 +1419,24 @@ export function WarungLandingPage() {
               </motion.button>
             ))}
             <a
+              href={WARUNG_DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex min-h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100 px-4 text-sm font-semibold text-zinc-800 transition hover:border-accent/40 hover:text-zinc-950 dark:border-white/15 dark:bg-white/5 dark:text-zinc-100 dark:hover:border-accent/40"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              Documentation
+            </a>
+            <a
+              href={WARUNG_AGENT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex min-h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100 px-4 text-sm font-semibold text-zinc-800 transition hover:border-accent/40 hover:text-zinc-950 dark:border-white/15 dark:bg-white/5 dark:text-zinc-100 dark:hover:border-accent/40"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              Agent
+            </a>
+            <a
               href={WARUNG_APP_URL}
               target="_blank"
               rel="noopener noreferrer"
@@ -2064,6 +2086,22 @@ export function WarungLandingPage() {
             Open the application or review the on-page demonstration.
           </p>
           <div className="mt-8 flex w-full max-w-md flex-col gap-3 sm:mx-auto sm:max-w-none sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-center">
+            <a
+              href={WARUNG_DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 min-h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-8 text-sm font-semibold text-zinc-800 transition hover:border-accent/40 hover:bg-accent/5 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:w-auto"
+            >
+              Read documentation
+            </a>
+            <a
+              href={WARUNG_AGENT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 min-h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-8 text-sm font-semibold text-zinc-800 transition hover:border-accent/40 hover:bg-accent/5 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:w-auto"
+            >
+              Open agent
+            </a>
             <a
               href={WARUNG_APP_URL}
               target="_blank"
