@@ -1,0 +1,269 @@
+import { useRef, useEffect, useCallback, useState } from "react";
+import { Menu, Moon, Sun } from "lucide-react";
+import { useConnectModal } from "@/contexts/ConnectModalContext";
+import { Button } from "@/components/ui/button";
+import { WalletNav } from "./WalletNav";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChatMessage, LoadingStepMessage, WarungLoadingMessage } from "./ChatMessage";
+import { ChatInput, type ChatInputHandle } from "./ChatInput";
+import { EmptyState } from "./EmptyState";
+import type { Agent } from "./AgentSelector";
+import { ConnectWalletPrompt } from "./ConnectWalletPrompt";
+import { ShareChatModal } from "./ShareChatModal";
+import type { JatevoModel } from "@/lib/chatApi";
+import type { CommerceAttachment } from "@/lib/warung/types";
+
+/** Pixel threshold: if within this distance from bottom, consider "at bottom" for follow-scroll. */
+const SCROLL_BOTTOM_THRESHOLD = 80;
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+  toolUsage?: {
+    name: string;
+    status: "running" | "complete" | "error";
+  };
+  toolUsages?: Array<{ name: string; status: "running" | "complete" | "error" }>;
+  commerce?: CommerceAttachment;
+}
+
+interface ChatAreaProps {
+  messages: Message[];
+  isLoading: boolean;
+  onSendMessage: (message: string) => void;
+  onStopGeneration: () => void;
+  /** Called when user clicks Regenerate on an assistant message; receives that message id */
+  onRegenerate?: (assistantMessageId: string) => void;
+  selectedAgent: Agent;
+  onSelectAgent: (agent: Agent) => void;
+  /** Current system prompt (read-only in UI for now) */
+  systemPrompt: string;
+  onToggleSidebar: () => void;
+  /** When true (desktop), show menu button to expand sidebar. When false, only show on small screens. */
+  sidebarCollapsed?: boolean;
+  /** When false, show connect-wallet prompt (session not ready). When true, show chat and input. */
+  sessionReady?: boolean;
+  walletConnected?: boolean;
+  /** Ref to focus the chat input (e.g. after new chat, after sending) */
+  inputRef?: React.RefObject<ChatInputHandle | null>;
+  /** Dark mode state and toggle for navbar */
+  isDarkMode?: boolean;
+  onToggleDarkMode?: () => void;
+  /** Available LLM models and current selection (for AI agent chat) */
+  models?: JatevoModel[];
+  selectedModelId?: string;
+  onSelectModel?: (modelId: string) => void;
+  /** User avatar URL for user messages */
+  userAvatarUrl?: string | null;
+  /** When user saves an edited user message in place: (messageId, newContent) => update */
+  onUpdateUserMessage?: (messageId: string, content: string) => void;
+  /** Warung Agent: use commerce loading row when assistant message is empty */
+  warungMode?: boolean;
+  onSelectWarungProduct?: (productId: string) => void;
+  onConfirmWarungOrder?: () => void;
+}
+
+export function ChatArea({
+  messages,
+  isLoading,
+  onSendMessage,
+  onStopGeneration,
+  onRegenerate,
+  selectedAgent,
+  onSelectAgent,
+  systemPrompt,
+  onToggleSidebar,
+  sidebarCollapsed = false,
+  sessionReady = true,
+  walletConnected = true,
+  inputRef,
+  isDarkMode = true,
+  onToggleDarkMode,
+  models = [],
+  selectedModelId = "",
+  onSelectModel,
+  userAvatarUrl = null,
+  onUpdateUserMessage,
+  warungMode = false,
+  onSelectWarungProduct,
+  onConfirmWarungOrder,
+}: ChatAreaProps) {
+  const { openConnectModal } = useConnectModal();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [shouldFollowScroll, setShouldFollowScroll] = useState(true);
+  const lastMessageCountRef = useRef(0);
+  const lastMessageRoleRef = useRef<"user" | "assistant" | null>(null);
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, []);
+
+  const isAtBottom = useCallback((el: HTMLDivElement) => {
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    return scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_THRESHOLD;
+  }, []);
+
+  // When user sends a message (new user message added), scroll to bottom so the new Q&A is in view and enable follow-scroll. When assistant streams, follow only if user hasn't scrolled up.
+  useEffect(() => {
+    if (messages.length === 0) {
+      lastMessageCountRef.current = 0;
+      lastMessageRoleRef.current = null;
+      return;
+    }
+    const last = messages[messages.length - 1];
+    const prevCount = lastMessageCountRef.current;
+    const prevRole = lastMessageRoleRef.current;
+    lastMessageCountRef.current = messages.length;
+    lastMessageRoleRef.current = last.role;
+
+    // User just sent: scroll to bottom and follow
+    if (last.role === "user" && (messages.length > prevCount || prevRole !== "user")) {
+      setShouldFollowScroll(true);
+      scrollToBottom();
+      return;
+    }
+    // Switched chat or first load with messages: start at bottom
+    if (prevCount === 0 && messages.length > 0) {
+      setShouldFollowScroll(true);
+      scrollToBottom();
+      return;
+    }
+    if (shouldFollowScroll) {
+      scrollToBottom();
+    }
+  }, [messages, scrollToBottom, shouldFollowScroll]);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    setShouldFollowScroll(isAtBottom(scrollRef.current));
+  }, [isAtBottom]);
+
+  return (
+    <div className="flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
+      {/* Header — safe-area-top for notched devices, touch-friendly on mobile */}
+      <header className="flex items-center justify-between gap-2 sm:gap-3 md:gap-4 px-3 py-2.5 sm:px-4 sm:py-3 md:px-5 lg:px-6 border-b border-border bg-background/80 backdrop-blur-xl min-h-[52px] sm:min-h-[52px] md:min-h-[56px] shrink-0 pt-[max(0.5rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={(sidebarCollapsed ? "" : "lg:hidden ") + "h-10 w-10 md:h-9 md:w-9 shrink-0 touch-manipulation min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"}
+            onClick={onToggleSidebar}
+            title={sidebarCollapsed ? "Show sidebar" : "Open menu"}
+            aria-label={sidebarCollapsed ? "Show sidebar" : "Open menu"}
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0 min-w-0 max-w-[65%] sm:max-w-none">
+          {onToggleDarkMode && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 md:h-9 md:w-9 shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 touch-manipulation"
+              onClick={onToggleDarkMode}
+              title={isDarkMode ? "Light mode" : "Dark mode"}
+              aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {isDarkMode ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
+            </Button>
+          )}
+          <WalletNav />
+        </div>
+      </header>
+
+      {/* Messages or Connect Wallet (when session not ready) */}
+      {!sessionReady ? (
+        <ScrollArea className="flex-1 min-h-0 min-w-0">
+          <div className="flex min-h-full w-full justify-center px-3 py-6 sm:px-4 sm:py-8 md:px-6 md:py-10">
+            <div className="w-full max-w-2xl md:max-w-3xl lg:max-w-4xl">
+              <ConnectWalletPrompt
+                variant="center"
+                onConnectClick={openConnectModal}
+              />
+            </div>
+          </div>
+        </ScrollArea>
+      ) : messages.length === 0 ? (
+        <ScrollArea className="flex-1 min-h-0 min-w-0">
+          <div className="flex min-h-full w-full justify-center px-3 sm:px-4 md:px-6">
+            <div className="w-full max-w-4xl xl:max-w-5xl">
+              <EmptyState onSelectPrompt={onSendMessage} />
+            </div>
+          </div>
+        </ScrollArea>
+      ) : (
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 min-h-0 min-w-0 overflow-auto overflow-x-hidden scrollbar-thin overscroll-behavior-contain"
+        >
+          <div className="flex flex-col flex-1 min-w-0 w-full max-w-4xl xl:max-w-5xl 2xl:max-w-6xl mx-auto">
+            <div className="divide-y divide-border/50 flex-1 min-w-0 w-full">
+              {messages.map((message) => {
+                const isEmptyStreamingAssistant =
+                  message.role === "assistant" &&
+                  message.isStreaming &&
+                  !message.content?.trim();
+                if (isEmptyStreamingAssistant && warungMode) {
+                  return (
+                    <WarungLoadingMessage
+                      key={message.id}
+                      agentName={selectedAgent.name}
+                    />
+                  );
+                }
+                if (isEmptyStreamingAssistant && walletConnected) {
+                  const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+                  return (
+                    <LoadingStepMessage
+                      key={message.id}
+                      lastUserMessage={lastUserMsg?.content}
+                      agentName={selectedAgent.name}
+                    />
+                  );
+                }
+                return (
+                  <ChatMessage
+                    key={message.id}
+                    message={message}
+                    agentName={selectedAgent.name}
+                    onRegenerate={onRegenerate}
+                    isRegenerateDisabled={isLoading}
+                    userAvatarUrl={userAvatarUrl}
+                    onUpdateUserMessage={onUpdateUserMessage}
+                    onSelectProduct={onSelectWarungProduct}
+                    onConfirmOrder={onConfirmWarungOrder}
+                    commerceActionsDisabled={isLoading}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Input – when session ready (chat allowed with or without wallet) */}
+      {sessionReady && (
+        <ChatInput
+          ref={inputRef}
+          onSend={onSendMessage}
+          isLoading={isLoading}
+          onStop={onStopGeneration}
+          placeholder={warungMode ? `Contoh: beli kopi 2…` : `Message ${selectedAgent.name}...`}
+          models={models}
+          selectedModelId={selectedModelId}
+          onSelectModel={onSelectModel}
+        />
+      )}
+    </div>
+  );
+}

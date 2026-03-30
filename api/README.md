@@ -1,0 +1,265 @@
+<div align="center">
+
+<img src="../frontend/public/images/logo.jpg" alt="Syra Logo" width="96" height="96" />
+
+# **Syra API**
+
+### Backend services and intelligence layer for the Syra ecosystem
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-docs.syraa.fun-0ea5e9)](https://docs.syraa.fun)
+[![API](https://img.shields.io/badge/API-Gateway-26a5e4)](https://api.syraa.fun)
+
+**[Documentation](https://docs.syraa.fun)** · **[API Playground](https://playground.syraa.fun)** · **[Telegram Bot](https://t.me/syra_trading_bot)** · **[Agent](https://agent.syraa.fun)**
+
+</div>
+
+---
+
+## Purpose
+
+The **api** package is the **backend service** for Syra. It is a Node.js (Express) server that:
+
+- **Exposes Syra's data and intelligence** — signals, research, news, sentiment, gems, KOL/crypto-KOL, browse, events, leaderboard, and sundown digest.
+- **Integrates with x402 & FareMeter** — pay-per-use and Solana payment flows for API access.
+- **Connects to external data** — Nansen (smart money, token god mode), Bubblemaps, Jupiter (trending), and others; **Binance correlation** is also included in **GET /analytics/summary**; deeper Binance spot / **Giza / Bankr / Neynar / SIWA** run only via **POST /agent/tools/call** (see `api/config/agentTools.js`).
+- **Runs Syra agents** — Solana agent, check-status, and create-signal for on-chain verified signals.
+- **Serves the prediction-game** — creators, events, staking (shared models and routes).
+- **Uses MongoDB** (Mongoose) for persistence where needed.
+
+This API backs the **Telegram bot**, **frontend dashboard**, **api-playground**, **x402 agent**, and **prediction-game** app. It is the single backend for the Syra monorepo.
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| **Runtime** | Node.js (ES modules) |
+| **Framework** | Express |
+| **Payments / gating** | x402, FareMeter (Solana) |
+| **Database** | MongoDB (Mongoose) |
+| **Blockchain** | Solana (SPL, web3.js, PayAI/facilitator) |
+
+---
+
+## Run locally
+
+```bash
+npm install
+# Set env vars (RPC, keys, facilitator, treasury, etc.)
+npm run dev
+```
+
+See the [root README](../README.md) and [Syra docs](https://docs.syraa.fun) for full setup and environment details.
+
+---
+
+## Tempo wallet (EVM keypair)
+
+Tempo uses **EVM-style** accounts (same as Ethereum): a **0x address** and a **hex private key**. Generate one locally:
+
+```bash
+cd api
+npm run generate-tempo-wallet
+```
+
+This writes **`api/.tempo-wallet.local.json`** (gitignored) with `address` and `privateKey`. Copy `privateKey` into `TEMPO_PAYOUT_PRIVATE_KEY` in `.env`. The script does **not** print the private key to the terminal.
+
+## Tempo payout rail
+
+The API can send stablecoin (TIP-20) payouts on [Tempo](https://docs.tempo.xyz) with optional memos for reconciliation.
+
+- **Endpoint:** `POST /payouts/tempo` (API key required)
+- **Body:** `{ "to": "0x...", "amountUsd": 10.5, "memo": "INV-12345" }`
+- **Env:** `TEMPO_RPC_URL`, `TEMPO_PAYOUT_PRIVATE_KEY`, `TEMPO_PAYOUT_TOKEN` (see `.env.example`)
+
+**AI agent — Tempo**
+
+- **Public (always on, $0):** `tempo-network-info` (RPC, explorers, token list URLs, docs) and `tempo-token-list` (JSON from [tokenlist.tempo.xyz](https://tokenlist.tempo.xyz/list/4217); param `chainId` `4217` or `42431`). No USDC balance required.
+- **Payouts:** When `TEMPO_AGENT_PAYOUT_ENABLED=true`, tool `tempo-send-payout` appears. Params: `amountUsd`, optional `memo`. Recipient is **never** taken from the model—only the user’s connected EVM address or Base agent wallet. Cap: `TEMPO_AGENT_PAYOUT_MAX_USD` (default 50).
+
+---
+
+## MPP discovery (MPPscan / AgentCash)
+
+**Settlement:** MPP discovery uses the **same URLs and x402 v2 payment flow** as the rest of Syra (`HTTP 402` → pay → retry with proof). `protocols: ["mpp"]` in OpenAPI is **discovery metadata** for [MPPscan](https://www.mppscan.com/discovery) / AgentCash, not a separate payment rail.
+
+**Catalog:**
+
+- **`GET /.well-known/x402`** — x402 resource list (unchanged).
+- **`GET /openapi.json`** — full **OpenAPI 3.1** MPP discovery document: one entry per paid route (from **agent tools** + [`x402DiscoveryResourcePaths.js`](./config/x402DiscoveryResourcePaths.js)), with `info.guidance`, `x-payment-info` (`protocols: ["mpp"]`, `pricingMode: "fixed"`, `price`), **`402`**, optional **query parameters** (GET) and **JSON requestBody** (POST) to satisfy discovery validators.
+- **`GET` / `POST` [`/mpp/v1/check-status`](https://api.syraa.fun/mpp/v1/check-status)** — MPP-branded health check (same tier as `/check-status`).
+
+To **register**, deploy then validate:
+
+```bash
+npx -y @agentcash/discovery@latest discover "https://api.syraa.fun"
+```
+
+Optional: **`SYRA_PUBLIC_API_URL`** for staging `servers[0].url`. **`X402_OWNERSHIP_PROOF_EVM`** / **`X402_OWNERSHIP_PROOF_SVM`** populate `x-discovery.ownershipProofs` (see [generateOwnershipProof.js](./scripts/generateOwnershipProof.js)).
+
+---
+
+## Register Syra on 8004 (Solana Agent Registry)
+
+The [8004 Trustless Agent Registry](https://8004.qnt.sh/skill.md) lets you register Syra as a discoverable agent on Solana.
+
+### Prerequisites
+
+1. **Solana signer** — In `.env`, set one of:
+   - `SOLANA_PRIVATE_KEY` — JSON array of 64 bytes, e.g. `"[1,2,...,64]"` (quote the value)
+   - `PAYER_KEYPAIR` — same format (if you already use it for Solana)
+   - `AGENT_PRIVATE_KEY` or `ZAUTH_SOLANA_PRIVATE_KEY` — base58-encoded secret key
+2. **Pinata** — [Create an API key](https://app.pinata.cloud) and set `PINATA_JWT` in `.env` (used to pin registration metadata to IPFS).
+3. **Optional:** `SYRA_AGENT_IMAGE_URI` — IPFS or HTTPS URL for the agent image; defaults to Syra logo.
+4. **Optional:** `SOLANA_CLUSTER=devnet` to register on devnet first; default is `mainnet-beta`.
+5. **Optional:** `8004_ATOM_ENABLED=true` to enable the ATOM reputation engine at registration (irreversible).
+
+### Run registration
+
+```bash
+cd api
+npm run register-8004
+```
+
+The script uploads agent metadata to IPFS and registers the agent on-chain. It prints the **agent asset (NFT) address** and **transaction signature**. Keep these for future updates (e.g. `setAgentUri`, `giveFeedback`).
+
+### Create Syra Agent collection (after registration)
+
+After registering the agent, you can create a **Syra Agents** collection and attach it to your agent:
+
+```bash
+cd api
+npm run create-8004-collection
+```
+
+- Uses the same `.env` (e.g. `SOLANA_PRIVATE_KEY`, `PINATA_JWT`).
+- By default uses agent asset `8aJwH76QsQe5uEAxbFXha24toSUKjHxsdCk4BRuKERYx`. Override with `SYRA_AGENT_ASSET=<base58>` if you re-registered.
+- Optional: set `SYRA_COLLECTION_IMAGE_URI`, `SYRA_COLLECTION_EXTERNAL_URL`, `SYRA_COLLECTION_X_URL` (and optionally `SYRA_COLLECTION_BANNER_URI`) in `.env` so the collection card shows your image, website link, and X/Twitter link.
+
+### New agent + collection in one run
+
+To register a **new** Syra agent and attach it to a collection in one run:
+
+```bash
+cd api
+npm run register-8004-with-collection
+```
+
+- **Add to existing Syra collection:** set `SYRA_COLLECTION_POINTER` in `.env` to your existing pointer (e.g. `c1:bafkreid3g6kogo55n5iob7pi36xppcycynn7m64pds7wshnankxjo52mfm`). The script will register the new agent and attach this pointer (no new collection created).
+- **Create new collection:** leave `SYRA_COLLECTION_POINTER` unset; optionally set `SYRA_COLLECTION_IMAGE_URI`, `SYRA_COLLECTION_EXTERNAL_URL`, `SYRA_COLLECTION_X_URL` for the collection card. The script will create the collection and attach it to the new agent.
+
+Prints the new agent asset at the end — save it as `SYRA_AGENT_ASSET` if needed.
+
+### API: create many agents and add to collection
+
+**POST /8004/register-agent** (x402 payment required)
+
+Creates a new 8004 agent with dynamic input and optionally attaches it to an existing collection. Call repeatedly to create many agents in the same collection. Requires x402 payment (e.g. PAYMENT-SIGNATURE or X-Payment header); without payment the API returns **402 Payment Required** with payment details.
+
+**Request body (JSON):**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Agent name |
+| `description` | string | Yes | Agent description |
+| `image` | string | No | Image URL (default: env `SYRA_AGENT_IMAGE_URI` or syraa.fun logo) |
+| `services` | array | No | `[{ "type": "MCP", "value": "https://..." }]` (default: MCP api.syraa.fun) |
+| `skills` | string[] | No | OASF skill slugs (default: Syra skills) |
+| `domains` | string[] | No | OASF domain slugs (default: finance) |
+| `x402Support` | boolean | No | Default true |
+| `collectionPointer` | string | No | Existing collection pointer `c1:...` to attach agent to |
+
+**Response (201):** `{ "asset": "<base58>", "registerSignature": "<tx>", "tokenUri": "ipfs://...", "setCollectionSignature": "<tx>" }` (last field only if `collectionPointer` was set).
+
+**Example (add agent to existing Syra collection):** First request without payment returns **402** with payment details; then pay (e.g. with wallet via API Playground or x402 client) and retry with the payment header.
+
+**Dev (no payment):** `POST /8004/dev/register-agent` when `NODE_ENV !== "production"`.
+
+### Improving your 8004 agent score (reviews / reachable)
+
+If your agent shows low scores (e.g. 50/100, 33/100) with tags like **reachable**, **degraded**, or **fail** on the [8004 website](https://8004.qnt.sh), do two things:
+
+1. **Fix liveness first** — The monitor is scoring based on whether your MCP/A2A endpoints respond. Ensure all services in your agent’s registration metadata are reachable and return success (or 401/403 if you use auth). Use the API or script to check:
+   - `GET /8004/agent/<ASSET>/liveness` — should show `status: "live"` and no `deadServices`.
+   - Fix any timeouts, 5xx, or unreachable URLs; then the same monitor will tend to submit higher scores on the next run.
+
+2. **Submit positive “reachable” feedback (score 100)** — The tag `reachable` does **not** auto-score; you must pass an explicit `score: 100`. Use the script (with a **client** wallet that will appear as the reviewer):
+   ```bash
+   cd api
+   node scripts/give-8004-feedback-reachable.js <AGENT_ASSET_BASE58>
+   ```
+   Requires: `SOLANA_PRIVATE_KEY` (or `AGENT_PRIVATE_KEY`), and either `PINATA_JWT` (to upload feedback to IPFS) or `FEEDBACK_URI` (e.g. `https://yoursite.com/8004-reachable.json`). See [8004 skill §5 and §23](https://8004.qnt.sh/skill.md).
+
+---
+
+## Quicknode RPC (optional)
+
+The API can proxy **Quicknode** RPC for Solana and Base so agents and MCP clients can query balances and transaction status (and raw JSON-RPC) via x402.
+
+### Setup
+
+In `api/.env` set one or both:
+
+- **`QUICKNODE_SOLANA_RPC_URL`** — Quicknode Solana endpoint (e.g. `https://xxx.solana-mainnet.quiknode.pro/YOUR_KEY/`)
+- **`QUICKNODE_BASE_RPC_URL`** — Quicknode Base endpoint (e.g. `https://xxx.base-mainnet.quiknode.pro/YOUR_KEY/`)
+
+Optional: **`QUICKNODE_RPC_TIMEOUT_MS`** (default 15000).
+
+### Endpoints (x402)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/quicknode/balance` | Query params: `chain` (solana \| base), `address`. Returns native balance (lamports for Solana, wei hex for Base). |
+| GET | `/quicknode/transaction` | Query params: `chain`, and `signature` (Solana) or `txHash` (Base). Returns transaction status. |
+| POST | `/quicknode/rpc` | Body: `{ "chain": "solana" \| "base", "method": "...", "params": [...], "id"?: number }`. Forwards raw JSON-RPC. |
+
+If neither env var is set, these routes return **503** with a message to configure Quicknode. The MCP server exposes `syra_v2_quicknode_balance`, `syra_v2_quicknode_transaction`, and `syra_v2_quicknode_rpc`.
+
+---
+
+## Bankr (optional)
+
+The API integrates **Bankr** (api.bankr.bot) with a **server-side** `BANKR_API_KEY`. There are **no public** `/bankr/*` URLs on Syra. Use the Syra Agent: **GET /agent/tools** and **POST /agent/tools/call** with tool IDs `bankr-balances`, `bankr-prompt`, `bankr-job`, `bankr-job-cancel` (see `api/config/agentTools.js` and `api/libs/agentPartnerDirectTools.js`).
+
+### Setup
+
+In `api/.env` set:
+
+- **`BANKR_API_KEY`** — Bankr API key (starts with `bk_...`). Create at [bankr.bot/api](https://bankr.bot/api) with **Agent API** enabled.
+
+Optional: **`BANKR_API_URL`** (default `https://api.bankr.bot`), **`BANKR_TIMEOUT_MS`** (default 30000).
+
+If `BANKR_API_KEY` is not set, agent tool calls return an error when those tools are invoked.
+
+---
+
+## ERC-8004 (Ethereum agent discovery)
+
+The **`/erc8004`** path is an alias for the same 8004scan router used at `/8004scan`. Use it for Ethereum mainnet (chainId 1) and Sepolia (11155111) ERC-8004 agent discovery. Same endpoints: `GET /erc8004/agents`, `GET /erc8004/agents/search?q=...`, `GET /erc8004/agents/:chainId/:tokenId`, `GET /erc8004/stats`, `GET /erc8004/chains`, etc. Optional **EIGHTYFOUR_SCAN_API_KEY** in `.env` for higher 8004scan rate limits.
+
+---
+
+## Neynar (Farcaster API, optional)
+
+**Neynar** is integrated for Farcaster user, feed, cast, and search. Set **`NEYNAR_API_KEY`** in `api/.env` (get a key at [dev.neynar.com](https://dev.neynar.com)). There are **no public** `/neynar/*` URLs on Syra — use agent tool IDs `neynar-user`, `neynar-feed`, `neynar-cast`, `neynar-search` via **POST /agent/tools/call**.
+
+---
+
+## SIWA (Sign-In With Agent, optional)
+
+**SIWA** lets ERC-8004 agents authenticate with services. Set **`RECEIPT_SECRET`** (min 32 chars) and **`SIWA_RPC_URL`** (or **`ETH_RPC_URL`**) in `api/.env`. Optional **`SIWA_DOMAIN`** (default `api.syraa.fun`). Requires **`@buildersgarden/siwa`** (already in dependencies). There are **no public** `/siwa/*` URLs on Syra — use agent tools **`siwa-nonce`** and **`siwa-verify`** via **POST /agent/tools/call**.
+
+---
+
+## API key and trusted origins
+
+- **Never embed `API_KEY` or `API_KEYS` in client-side code.** The API injects the key for requests from trusted origins (syraa.fun, dashboard, agent, playground) so frontends do not need to send it.
+- If an API key was ever exposed in a client bundle (e.g. in a built JS file), **rotate it immediately**: generate a new key, set it in the API’s `.env` as `API_KEY` or in `API_KEYS`, redeploy, and stop using the old key.
+
+---
+
+## License
+
+MIT — see [LICENSE](../LICENSE) at repo root.

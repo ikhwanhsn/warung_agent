@@ -1,0 +1,14 @@
+# Upstream source extract / archives (do not commit)
+_syra_extract/
+_syra_tmp/
+syra_main.zip
+
+# Dependencies & build
+node_modules/
+dist/
+.next/
+*.local
+
+# Env
+.env
+.env.*.local
