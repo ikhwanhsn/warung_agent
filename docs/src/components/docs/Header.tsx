@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
-import { Search, Menu, X, Sun, Moon, Store } from "lucide-react";
+import { Search, Menu, X, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -80,9 +80,11 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
             </Button>
 
             <Link to="/" className="flex items-center gap-2 group flex-shrink-0 min-w-0">
-              <span className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
-                <Store className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem] text-primary" aria-hidden />
-              </span>
+              <img
+                src="/images/logo-transparent.png"
+                alt="Warung Agent logo"
+                className="h-7 w-7 sm:h-8 sm:w-8 object-contain flex-shrink-0"
+              />
               <span className="font-semibold text-base sm:text-lg tracking-tight truncate">Warung Agent</span>
               <span className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted flex-shrink-0 hidden sm:inline-flex">
                 docs
