@@ -52,7 +52,6 @@ import { createBubblemapsMapsRouter as createV2BubblemapsMapsRouter } from "./ro
 // import { ExactEvmScheme } from "@x402/evm/exact/server";
 // import { ExactSvmScheme } from "@x402/svm/exact/server";
 import dotenv from "dotenv";
-import { zauthProvider } from "@zauthx402/sdk/middleware";
 import { createPredictionGameRouter } from "./routes/prediction-game/index.js";
 import { create8004Router } from "./routes/8004.js";
 import { create8004scanRouter } from "./routes/partner/8004scan/index.js";
@@ -506,19 +505,27 @@ app.use(
   ),
 );
 
-// ZAuth x402 monitoring (before x402 routes) – telemetry & optional validation/refunds via zauthx402.com
+// ZAuth x402 monitoring (before x402 routes) – optional dep @zauthx402/sdk
 const ZAUTH_API_KEY = (process.env.ZAUTH_API_KEY || "").trim();
 if (ZAUTH_API_KEY) {
-  app.use(
-    zauthProvider(ZAUTH_API_KEY, {
-      refund: {
-        enabled: true,
-        solanaPrivateKey: process.env.ZAUTH_SOLANA_PRIVATE_KEY,
-        network: "solana",
-        maxRefundUsd: 1.0,
-      },
-    }),
-  );
+  try {
+    const { zauthProvider } = await import("@zauthx402/sdk/middleware");
+    app.use(
+      zauthProvider(ZAUTH_API_KEY, {
+        refund: {
+          enabled: true,
+          solanaPrivateKey: process.env.ZAUTH_SOLANA_PRIVATE_KEY,
+          network: "solana",
+          maxRefundUsd: 1.0,
+        },
+      }),
+    );
+  } catch (err) {
+    console.warn(
+      "[zauth] ZAUTH_API_KEY is set but @zauthx402/sdk is not installed — run npm install in api/.",
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 app.get("/", (req, res) => {
