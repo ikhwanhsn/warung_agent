@@ -63,76 +63,49 @@ type DemoShopOption = {
   pickLabel: string;
   title: string;
   price: number;
-  tag: string;
+  rating: number;
+  reason: string;
+  distanceKm: number;
 };
 
 const DEMO_OPTIONS: readonly DemoShopOption[] = [
   {
-    id: "fuji",
-    pickLabel: "Apel Fuji 1 kg",
-    title: "Apel Fuji 1kg",
-    price: 42_000,
-    tag: "Stok tersedia",
+    id: "kedai-senja",
+    pickLabel: "Saya pilih Kedai Senja",
+    title: "Kedai Senja",
+    price: 36_000,
+    rating: 4.8,
+    reason: "Latte favorit banyak orang",
+    distanceKm: 1.2,
   },
   {
-    id: "malang",
-    pickLabel: "Apel Malang 1 kg",
-    title: "Apel Malang 1kg",
-    price: 38_000,
-    tag: "Produk lokal",
+    id: "kopi-kita",
+    pickLabel: "Saya pilih Kopi Kita",
+    title: "Kopi Kita",
+    price: 34_000,
+    rating: 4.7,
+    reason: "Harga lebih hemat",
+    distanceKm: 0.9,
   },
   {
-    id: "granny",
-    pickLabel: "Apel Granny Smith 1 kg",
-    title: "Apel Granny Smith 1kg",
-    price: 55_000,
-    tag: "Premium · impor",
+    id: "roastery-88",
+    pickLabel: "Saya pilih Roastery 88",
+    title: "Roastery 88",
+    price: 41_000,
+    rating: 4.9,
+    reason: "Biji kopi premium, rasa kuat",
+    distanceKm: 2.1,
   },
 ] as const;
 
 const DEMO_ONGKIR = 5_000;
 
 const DEMO_MERCHANT = {
-  name: "Warung Segar",
-  address: "Vila Acasa Bogor",
+  name: "Coffee Discovery",
+  address: "Bogor Kota",
   country: "Indonesia",
   flag: "🇮🇩",
 } as const;
-
-const DEMO_PHASES = [
-  "idle",
-  "user1",
-  "think1",
-  "options",
-  "user2",
-  "think2",
-  "bill",
-  "think3",
-  "qris",
-  "user3",
-  "think4",
-  "verify",
-  "packing",
-  "success",
-] as const;
-
-type DemoPhase = (typeof DEMO_PHASES)[number];
-
-function demoPhaseIndex(p: DemoPhase): number {
-  return DEMO_PHASES.indexOf(p);
-}
-
-function demoAtOrPast(phase: DemoPhase, min: DemoPhase): boolean {
-  return demoPhaseIndex(phase) >= demoPhaseIndex(min);
-}
-
-function demoChapterIndex(phase: DemoPhase): number {
-  const i = demoPhaseIndex(phase);
-  if (i < demoPhaseIndex("options")) return 0;
-  if (i < demoPhaseIndex("qris")) return 1;
-  if (i < demoPhaseIndex("success")) return 2;
-  return 3;
-}
 
 const DEMO_CHAPTERS = [
   { id: "chat", label: "Chat" },
@@ -353,7 +326,7 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             className={`self-end max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 text-sm text-white ${demoUserBubble}`}
           >
-            Dua kopi tubruk, mohon.
+            saya ingin membeli kopi
           </motion.div>
         )}
         {phase === 2 && (
@@ -374,14 +347,14 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
             className="self-start max-w-[92%] rounded-2xl rounded-bl-md border border-border bg-muted/40 px-3 py-2 text-sm text-card-foreground shadow-sm"
           >
             <p className="mb-2 text-xs font-medium text-accent">
-              Pilih salah satu opsi:
+              Tempat kopi terdekat yang cocok:
             </p>
             <ul className="space-y-1.5 text-xs text-card-foreground">
               <li className="rounded-lg border border-border bg-card px-2 py-1.5">
-                Kopi Tubruk ×2 — Rp 16.000
+                Kedai Senja — 4.8★ · 1.2 km
               </li>
               <li className="rounded-lg px-2 py-1.5 text-muted-foreground">
-                Americano ×2 — Rp 24.000
+                Kopi Kita — 4.7★ · 0.9 km
               </li>
             </ul>
           </motion.div>
@@ -392,11 +365,11 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
             animate={{ opacity: 1, y: 0 }}
             className="self-start max-w-[90%] rounded-2xl rounded-bl-md border border-teal-500/35 bg-card px-3 py-2 text-sm text-card-foreground shadow-sm"
           >
-            Konfirmasi: Tubruk ×2, total{" "}
+            Pilih salah satu tempat, nanti aku lanjutkan menu + upsell. Estimasi{" "}
             <span className="font-semibold text-card-foreground">
-              Rp 16.000
+              mulai Rp 34.000
             </span>
-            . Balas <span className="text-accent">ya</span> untuk melanjutkan.
+            .
           </motion.div>
         )}
         {phase >= 5 && (
@@ -405,7 +378,7 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             className={`self-end max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 text-sm text-white ${demoUserBubble}`}
           >
-            ya
+            saya pilih Kedai Senja
           </motion.div>
         )}
         {phase === 6 && (
@@ -434,7 +407,7 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
                   Pembayaran QRIS
                 </p>
                 <p className="mt-0.5 text-base font-bold tracking-tight text-card-foreground">
-                  Rp 16.000
+                  Rp 42.000
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   E-wallet atau mobile banking
@@ -459,28 +432,28 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-100/80 px-2.5 py-1.5 dark:border-emerald-500/25 dark:bg-emerald-900/35">
                 <Check className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-300" />
-                <span className="font-medium">Pembayaran terverifikasi</span>
+                <span className="font-medium">Pembayaran kopi terverifikasi</span>
               </div>
               {phase < 9 ? (
                 <div className="flex items-center gap-2 rounded-lg border border-teal-300/70 bg-teal-50/85 px-2.5 py-1.5 dark:border-teal-500/25 dark:bg-teal-950/35">
                   <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-700 dark:text-teal-300" />
-                  <span className="font-medium">Pesanan sedang disiapkan</span>
+                  <span className="font-medium">Minuman sedang disiapkan</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-lg border border-teal-300/70 bg-teal-100/80 px-2.5 py-1.5 dark:border-teal-500/25 dark:bg-teal-900/35">
                   <Check className="h-3.5 w-3.5 shrink-0 text-teal-700 dark:text-teal-300" />
-                  <span className="font-medium">Pesanan selesai disiapkan</span>
+                  <span className="font-medium">Minuman selesai disiapkan</span>
                 </div>
               )}
               {phase < 10 ? (
                 <div className="flex items-center gap-2 rounded-lg border border-border bg-card/70 px-2.5 py-1.5 text-muted-foreground">
                   <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
-                  <span>Siap diantar / diambil</span>
+                  <span>Siap diantar / pickup</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-100/80 px-2.5 py-1.5 dark:border-emerald-500/25 dark:bg-emerald-900/35">
                   <Check className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-300" />
-                  <span className="font-medium">Pesanan siap diantar / diambil</span>
+                  <span className="font-medium">Pesanan siap diantar / pickup</span>
                 </div>
               )}
             </div>
@@ -492,20 +465,36 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
   );
 }
 
-const DEMO_USER_OPEN =
-  "Saya ingin membeli apel 1 kg, yang segar.";
+const DEMO_USER_OPEN = "Saya ingin membeli kopi";
+const DEMO_MAIN_MENU = { name: "Latte", price: 30_000 } as const;
+const DEMO_UPSELL_ITEM = { name: "Croissant", price: 15_000 } as const;
+
+type DemoFlowState =
+  | "idle"
+  | "showing_options"
+  | "awaiting_selection"
+  | "upsell"
+  | "summary"
+  | "payment"
+  | "done";
+
+function demoChapterFromState(state: DemoFlowState): number {
+  if (state === "idle" || state === "showing_options" || state === "awaiting_selection") return 0;
+  if (state === "upsell" || state === "summary") return 1;
+  if (state === "payment") return 2;
+  return 3;
+}
 
 function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
-  const [phase, setPhase] = useState<DemoPhase>("idle");
-  const [selected, setSelected] = useState<DemoShopOption | null>(null);
+  const [flowState, setFlowState] = useState<DemoFlowState>("idle");
+  const [selectedStore, setSelectedStore] = useState<DemoShopOption | null>(null);
+  const [includeUpsell, setIncludeUpsell] = useState<boolean | null>(null);
+  const [deliveryMode, setDeliveryMode] = useState<"Delivery" | "Pickup">("Delivery");
   const [replayTick, setReplayTick] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [isThinking, setIsThinking] = useState(false);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const phaseRef = useRef<DemoPhase>("idle");
-  const payStartedRef = useRef(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
-
-  phaseRef.current = phase;
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
@@ -517,63 +506,35 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
     timersRef.current.push(id);
   }, []);
 
-  const runAfterQris = useCallback(() => {
+  const startDemo = useCallback(() => {
     clearTimers();
-    payStartedRef.current = true;
-    setPhase("user3");
-    let t = 0;
-    schedule((t += 450), () => setPhase("think4"));
-    schedule((t += 850), () => setPhase("verify"));
-    schedule((t += 1600), () => setPhase("packing"));
-    schedule((t += 1900), () => setPhase("success"));
-  }, [clearTimers, schedule]);
+    setSelectedStore(null);
+    setIncludeUpsell(null);
+    setDeliveryMode("Delivery");
+    setIsThinking(false);
+    setFlowState("idle");
 
-  const pickOption = useCallback(
-    (opt: DemoShopOption) => {
-      if (phaseRef.current !== "options") return;
-      clearTimers();
-      setSelected(opt);
-      setPhase("user2");
-      let t = 0;
-      schedule((t += 500), () => setPhase("think2"));
-      schedule((t += 950), () => setPhase("bill"));
-      schedule((t += 650), () => setPhase("think3"));
-      schedule((t += 800), () => setPhase("qris"));
-      schedule((t += 5200), () => {
-        if (phaseRef.current === "qris" && !payStartedRef.current) {
-          runAfterQris();
-        }
-      });
-    },
-    [clearTimers, schedule, runAfterQris],
-  );
-
-  const startOpening = useCallback(() => {
-    clearTimers();
-    payStartedRef.current = false;
-    setSelected(null);
-    setPhase("idle");
     let t = 0;
-    schedule((t += 350), () => setPhase("user1"));
-    schedule((t += 750), () => setPhase("think1"));
-    schedule((t += 1100), () => setPhase("options"));
-    schedule((t += 4200), () => {
-      if (phaseRef.current === "options") {
-        pickOption(DEMO_OPTIONS[0]);
-      }
+    schedule((t += 520), () => {
+      setIsThinking(true);
+      setFlowState("showing_options");
     });
-  }, [clearTimers, schedule, pickOption]);
+    schedule((t += 900), () => {
+      setIsThinking(false);
+      setFlowState("awaiting_selection");
+    });
+  }, [clearTimers, schedule]);
 
   useEffect(() => {
     if (reducedMotion) {
-      clearTimers();
-      setSelected(DEMO_OPTIONS[0]);
-      setPhase("success");
+      setSelectedStore(DEMO_OPTIONS[0]);
+      setIncludeUpsell(true);
+      setFlowState("done");
       return;
     }
-    startOpening();
+    startDemo();
     return () => clearTimers();
-  }, [reducedMotion, startOpening, clearTimers]);
+  }, [reducedMotion, startDemo, clearTimers]);
 
   useEffect(() => {
     setElapsedSec(0);
@@ -581,9 +542,7 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
 
   useEffect(() => {
     if (reducedMotion) return;
-    const id = window.setInterval(() => {
-      setElapsedSec((s) => s + 1);
-    }, 1000);
+    const id = window.setInterval(() => setElapsedSec((s) => s + 1), 1000);
     return () => window.clearInterval(id);
   }, [replayTick, reducedMotion]);
 
@@ -596,57 +555,60 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
     scrollToEnd();
     const inner = scrollEl.firstElementChild;
     if (!(inner instanceof HTMLElement)) return;
-    const ro = new ResizeObserver(() => {
-      requestAnimationFrame(scrollToEnd);
-    });
+    const ro = new ResizeObserver(() => requestAnimationFrame(scrollToEnd));
     ro.observe(inner);
     return () => ro.disconnect();
-  }, [phase, selected?.id, replayTick, reducedMotion]);
+  }, [flowState, selectedStore?.id, includeUpsell, deliveryMode, replayTick, isThinking]);
 
   useEffect(() => {
-    if (reducedMotion || phase !== "success") return;
+    if (reducedMotion || flowState !== "done") return;
     const id = window.setTimeout(() => {
-      clearTimers();
-      payStartedRef.current = false;
-      setSelected(null);
-      setPhase("idle");
-      setReplayTick((k) => k + 1);
-      window.setTimeout(() => startOpening(), 140);
-    }, 5200);
+      setReplayTick((n) => n + 1);
+      startDemo();
+    }, 6400);
     return () => window.clearTimeout(id);
-  }, [phase, reducedMotion, clearTimers, startOpening]);
+  }, [flowState, reducedMotion, startDemo]);
 
   const handleReplay = () => {
+    setReplayTick((n) => n + 1);
+    startDemo();
+  };
+
+  const handleStoreSelect = (store: DemoShopOption) => {
+    if (flowState !== "awaiting_selection") return;
     clearTimers();
-    payStartedRef.current = false;
-    setSelected(null);
-    setPhase("idle");
-    setReplayTick((k) => k + 1);
-    schedule(100, () => startOpening());
+    setSelectedStore(store);
+    setIsThinking(true);
+    setFlowState("upsell");
+    schedule(850, () => setIsThinking(false));
   };
 
-  const handlePayClick = () => {
-    if (phase !== "qris" || payStartedRef.current) return;
-    runAfterQris();
+  const handleUpsellChoice = (accept: boolean) => {
+    if (flowState !== "upsell") return;
+    setIncludeUpsell(accept);
+    setIsThinking(true);
+    schedule(700, () => {
+      setIsThinking(false);
+      setFlowState("summary");
+    });
   };
 
-  const total =
-    selected != null
-      ? selected.price + DEMO_ONGKIR
-      : DEMO_OPTIONS[0].price + DEMO_ONGKIR;
+  const handleCheckout = () => {
+    if (flowState !== "summary" || selectedStore == null || includeUpsell == null) return;
+    setFlowState("payment");
+    setIsThinking(true);
+    schedule(1200, () => {
+      setIsThinking(false);
+      setFlowState("done");
+    });
+  };
 
-  const voiceActive =
-    phase === "think1" ||
-    phase === "think2" ||
-    phase === "think3" ||
-    phase === "think4" ||
-    phase === "verify" ||
-    phase === "packing";
-
-  const userSpeaking = phase === "user1";
-
+  const baseTotal = selectedStore?.price ?? DEMO_OPTIONS[0].price;
+  const menuTotal = DEMO_MAIN_MENU.price + (includeUpsell ? DEMO_UPSELL_ITEM.price : 0);
+  const total = Math.max(menuTotal, baseTotal) + DEMO_ONGKIR;
   const elapsedLabel = `${String(Math.floor(elapsedSec / 60)).padStart(2, "0")}:${String(elapsedSec % 60).padStart(2, "0")}`;
-  const chapter = demoChapterIndex(phase);
+  const chapter = demoChapterFromState(flowState);
+  const recommendedStore = DEMO_OPTIONS[0];
 
   return (
     <div className="relative flex h-[min(78dvh,720px)] min-h-[min(360px,50dvh)] w-full min-w-0 max-h-[min(90dvh,800px)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_0_48px_-16px_rgba(20,184,166,0.14)] ring-1 ring-border/60 sm:rounded-3xl dark:shadow-[0_0_72px_-16px_rgba(20,184,166,0.38)]">
@@ -690,7 +652,7 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
         </button>
       </div>
 
-      <DemoVoiceStrip active={voiceActive || Boolean(userSpeaking)} />
+      <DemoVoiceStrip active={isThinking} />
 
       <div className="relative z-10 shrink-0 border-b border-border bg-muted/25 px-3 py-2.5 sm:px-4">
         <div className="flex gap-1.5 sm:gap-2">
@@ -735,7 +697,13 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
         className="demo-chat-scroll relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain touch-pan-y bg-background px-3 py-4 sm:px-4"
       >
         <div className="space-y-3 pb-4 sm:space-y-4 sm:pb-6">
-        {demoAtOrPast(phase, "user1") && (
+        {(flowState === "idle" ||
+          flowState === "showing_options" ||
+          flowState === "awaiting_selection" ||
+          flowState === "upsell" ||
+          flowState === "summary" ||
+          flowState === "payment" ||
+          flowState === "done") && (
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
@@ -746,7 +714,7 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
             >
               <TypewriterText
                 text={DEMO_USER_OPEN}
-                active={demoAtOrPast(phase, "user1")}
+                active={true}
                 reducedMotion={reducedMotion}
                 msPerChar={18}
               />
@@ -759,7 +727,7 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
           </motion.div>
         )}
 
-        {phase === "think1" && (
+        {isThinking && flowState === "showing_options" && (
           <div className="flex gap-2">
             <div className={`flex h-9 w-9 shrink-0 items-center justify-center ${demoBotShell}`}>
               <Bot className="h-4 w-4 text-teal-700 dark:text-accent" />
@@ -772,12 +740,16 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600 [animation-delay:120ms] dark:bg-accent" />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600 [animation-delay:240ms] dark:bg-accent" />
               </span>
-              <span className="min-w-0 break-words">Menyiapkan opsi produk…</span>
+              <span className="min-w-0 break-words">Aku carikan beberapa tempat kopi terbaik di dekat kamu ya ☕</span>
             </div>
           </div>
         )}
 
-        {demoAtOrPast(phase, "options") && (
+        {(flowState === "awaiting_selection" ||
+          flowState === "upsell" ||
+          flowState === "summary" ||
+          flowState === "payment" ||
+          flowState === "done") && (
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
@@ -791,16 +763,17 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
                 Warung Agent
               </p>
               <p className="mb-1 text-xs font-medium text-accent">
-                Berikut pilihan yang tersedia. Silakan pilih satu.
+                Aku sudah pilihkan 3 tempat paling relevan.
               </p>
               <p className="mb-3 text-xs text-muted-foreground">
-                Jika tidak ada pilihan, sistem akan melanjutkan dengan opsi
-                default.
+                Kalau kamu mau yang paling enak dan cepat, aku rekomendasikan{" "}
+                <span className="font-semibold text-card-foreground">{recommendedStore.title}</span>.
               </p>
               <div className="flex flex-col gap-2">
                 {DEMO_OPTIONS.map((opt) => {
-                  const locked = phase !== "options";
-                  const isSel = selected?.id === opt.id;
+                  const locked = flowState !== "awaiting_selection";
+                  const isSel = selectedStore?.id === opt.id;
+                  const isRecommended = opt.id === recommendedStore.id;
                   return (
                     <button
                       key={opt.id}
@@ -815,11 +788,21 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
                           : "border-border bg-muted/35 text-card-foreground hover:border-accent/40 hover:bg-accent/10"
                       }`}
                     >
-                      <span className="font-semibold text-card-foreground">
-                        {opt.title}
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-semibold text-card-foreground">
+                          ☕ {opt.title} ({opt.rating.toFixed(1)}⭐)
+                        </span>
+                        {isRecommended && (
+                          <span className="rounded-full border border-emerald-400/50 bg-emerald-100/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300">
+                            Recommended
+                          </span>
+                        )}
+                      </div>
+                      <span className="mt-1 block text-muted-foreground">
+                        - {opt.reason}
                       </span>
                       <span className="mt-0.5 block text-muted-foreground">
-                        Rp {formatIdr(opt.price)} · {opt.tag}
+                        - {opt.distanceKm.toFixed(1)} km dari kamu
                       </span>
                     </button>
                   );
@@ -829,7 +812,11 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
           </motion.div>
         )}
 
-        {demoAtOrPast(phase, "user2") && selected && (
+        {(flowState === "upsell" ||
+          flowState === "summary" ||
+          flowState === "payment" ||
+          flowState === "done") &&
+          selectedStore && (
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
@@ -839,8 +826,8 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
               className={`max-w-[min(82%,20rem)] break-words rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm text-white sm:max-w-[82%] ${demoUserBubble}`}
             >
               <TypewriterText
-                text={selected.pickLabel}
-                active={demoAtOrPast(phase, "user2")}
+                text={selectedStore.pickLabel}
+                active={true}
                 reducedMotion={reducedMotion}
                 msPerChar={22}
               />
@@ -853,7 +840,7 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
           </motion.div>
         )}
 
-        {phase === "think2" && (
+        {isThinking && flowState === "upsell" && (
           <div className="flex gap-2">
             <div className={`flex h-9 w-9 shrink-0 items-center justify-center ${demoBotShell}`}>
               <Bot className="h-4 w-4 text-teal-700 dark:text-accent" />
@@ -863,13 +850,17 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
             >
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-accent" />
               <span className="min-w-0 break-words">
-                Menyiapkan ringkasan dan QRIS…
+                Menyiapkan opsi menu terbaik buat kamu…
               </span>
             </div>
           </div>
         )}
 
-        {demoAtOrPast(phase, "bill") && selected && (
+        {(flowState === "upsell" ||
+          flowState === "summary" ||
+          flowState === "payment" ||
+          flowState === "done") &&
+          selectedStore && !isThinking && (
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -879,27 +870,39 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
               <Bot className="h-4 w-4 text-teal-700 dark:text-accent" />
             </div>
             <div className="min-w-0 flex-1 rounded-2xl rounded-bl-md border border-teal-500/35 bg-card p-3 text-sm text-card-foreground shadow-sm">
-              <p className="text-xs text-accent">Oke, catat ya</p>
+              <p className="text-xs text-accent">Sip, lanjut menu + upsell</p>
               <p className="mt-1">
-                {selected.title} —{" "}
+                Tempat terpilih: {selectedStore.title} —{" "}
                 <span className="font-semibold text-card-foreground">
-                  Rp {formatIdr(selected.price)}
+                  mulai Rp {formatIdr(selectedStore.price)}
                 </span>
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Ongkir area kamu Rp {formatIdr(DEMO_ONGKIR)}. Total{" "}
-                <span className="font-semibold text-card-foreground">
-                  Rp {formatIdr(selected.price + DEMO_ONGKIR)}
-                </span>
+                Biasanya yang ambil latte juga sekalian ambil croissant atau cookies. Mau sekalian aku tambahin?
               </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Langkah berikutnya: pembayaran QRIS dan verifikasi status.
-              </p>
+              {flowState === "upsell" && (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUpsellChoice(true)}
+                    className="rounded-lg border border-emerald-400/50 bg-emerald-100/80 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-800 transition hover:bg-emerald-200/80 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                  >
+                    Tambahin croissant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpsellChoice(false)}
+                    className="rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground transition hover:bg-muted"
+                  >
+                    Sudah, itu saja
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
 
-        {phase === "think3" && (
+        {isThinking && flowState === "summary" && (
           <div className="flex gap-2">
             <div className={`flex h-9 w-9 shrink-0 items-center justify-center ${demoBotShell}`}>
               <Bot className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
@@ -908,12 +911,14 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
               className={`flex min-w-0 flex-1 items-center gap-2 ${demoAgentTypingRow}`}
             >
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-500 dark:text-emerald-400" />
-              <span className="min-w-0 break-words">Generate kode bayar…</span>
+              <span className="min-w-0 break-words">Menyusun ringkasan pesanan kamu…</span>
             </div>
           </div>
         )}
 
-        {demoAtOrPast(phase, "qris") && selected && (
+        {(flowState === "summary" || flowState === "payment" || flowState === "done") &&
+          selectedStore &&
+          includeUpsell != null && (
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -924,34 +929,70 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
             </div>
             <div className="min-w-0 flex-1 overflow-hidden rounded-2xl rounded-bl-md border border-emerald-300/70 bg-gradient-to-b from-emerald-50 to-card p-4 shadow-[0_0_32px_-14px_rgba(16,185,129,0.18)] dark:border-emerald-500/30 dark:from-emerald-950/45 dark:to-card dark:shadow-[0_0_40px_-16px_rgba(16,185,129,0.35)]">
               <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                Pembayaran QRIS
+                Ringkasan pesanan
               </p>
-              <p className="mt-1 text-lg font-bold tracking-tight text-card-foreground">
-                Rp {formatIdr(total)}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Scan dengan aplikasi e-wallet atau mobile banking Anda.
-              </p>
-              <div className="mx-auto mt-3 w-fit max-w-full">
-                <DemoQrisImage />
+              <div className="mt-2 space-y-1 text-xs text-card-foreground">
+                <p>🧾 Pesanan kamu:</p>
+                <p>- {DEMO_MAIN_MENU.name} ({selectedStore.title})</p>
+                {includeUpsell && <p>- {DEMO_UPSELL_ITEM.name}</p>}
+                <p className="pt-1 text-[11px] text-muted-foreground">
+                  Estimasi siap: 15 menit · Opsi: {deliveryMode}
+                </p>
               </div>
-              <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                Referensi: WARUNG-8821
+              <p className="mt-2 text-lg font-bold tracking-tight text-card-foreground">
+                Total: Rp {formatIdr(total)}
               </p>
+              {flowState === "summary" && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMode("Delivery")}
+                      className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+                        deliveryMode === "Delivery"
+                          ? "border-accent/45 bg-accent/15 text-accent"
+                          : "border-border bg-muted/40 text-muted-foreground"
+                      }`}
+                    >
+                      Delivery
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMode("Pickup")}
+                      className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+                        deliveryMode === "Pickup"
+                          ? "border-accent/45 bg-accent/15 text-accent"
+                          : "border-border bg-muted/40 text-muted-foreground"
+                      }`}
+                    >
+                      Pickup
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Langsung aku checkout sekarang?
+                  </p>
+                </div>
+              )}
+
+              {(flowState === "payment" || flowState === "done") && (
+                <div className="mx-auto mt-3 w-fit max-w-full">
+                  <DemoQrisImage />
+                </div>
+              )}
               <button
                 type="button"
-                onClick={handlePayClick}
-                disabled={phase !== "qris" || payStartedRef.current}
+                onClick={handleCheckout}
+                disabled={flowState !== "summary"}
                 className="mt-4 flex min-h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-xl border border-emerald-700/20 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-transparent dark:shadow-lg"
               >
                 <Check className="h-4 w-4" />
-                Konfirmasi pembayaran
+                {flowState === "summary" ? "Checkout sekarang" : "Pembayaran diproses"}
               </button>
             </div>
           </motion.div>
         )}
 
-        {demoAtOrPast(phase, "user3") && (
+        {(flowState === "payment" || flowState === "done") && (
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
@@ -961,8 +1002,8 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
               className={`max-w-[min(82%,20rem)] break-words rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm text-white sm:max-w-[82%] ${demoUserBubble}`}
             >
               <TypewriterText
-                text="Pembayaran telah saya lakukan."
-                active={demoAtOrPast(phase, "user3")}
+                text="Pembayaran sudah saya lakukan."
+                active={true}
                 reducedMotion={reducedMotion}
                 msPerChar={16}
               />
@@ -975,7 +1016,7 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
           </motion.div>
         )}
 
-        {phase === "think4" && (
+        {flowState === "payment" && isThinking && (
           <div className="flex gap-2">
             <div className={`flex h-9 w-9 shrink-0 items-center justify-center ${demoBotShell}`}>
               <Bot className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
@@ -983,45 +1024,33 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl rounded-bl-md border border-zinc-200/90 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-600 dark:border-white/10 dark:bg-zinc-900/80 dark:text-zinc-500">
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-500 dark:text-zinc-400" />
               <span className="min-w-0 break-words">
-                Memeriksa mutasi rekening…
+                Memeriksa status pembayaran…
               </span>
             </div>
           </div>
         )}
 
-        {demoAtOrPast(phase, "verify") && (
+        {flowState === "done" && (
           <div className="flex gap-2">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-300/80 bg-amber-100/90 dark:border-amber-500/25 dark:bg-amber-950/20">
               <Zap className="h-4 w-4 text-amber-700 dark:text-amber-400" />
             </div>
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl rounded-bl-md border border-amber-300/70 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-500/20 dark:bg-amber-950/25 dark:text-amber-200/90">
-              {phase === "verify" ? (
-                <>
-                  <Loader2
-                    className="h-3.5 w-3.5 shrink-0 animate-spin text-amber-600 dark:text-amber-400"
-                    aria-hidden
-                  />
-                  <span className="min-w-0 break-words">
-                    Memverifikasi pembayaran QRIS ke warung…
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Check
-                    className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400"
-                    strokeWidth={2.5}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 break-words">
-                    Pembayaran QRIS sudah terverifikasi.
-                  </span>
-                </>
-              )}
+              <>
+                <Check
+                  className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400"
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+                <span className="min-w-0 break-words">
+                  Pembayaran mock berhasil terverifikasi.
+                </span>
+              </>
             </div>
           </div>
         )}
 
-        {demoAtOrPast(phase, "packing") && (
+        {flowState === "done" && (
           <div className="flex gap-2">
             <div className={`flex h-9 w-9 shrink-0 items-center justify-center ${demoBotShell}`}>
               <ShoppingBag className="h-4 w-4 text-teal-600 dark:text-teal-400" />
@@ -1029,33 +1058,21 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
             <div
               className={`flex min-w-0 flex-1 items-center gap-2 ${demoAgentTypingRow} text-foreground`}
             >
-              {phase === "packing" ? (
-                <>
-                  <Loader2
-                    className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-600 dark:text-teal-400"
-                    aria-hidden
-                  />
-                  <span className="min-w-0 break-words">
-                    Pembayaran diterima · pesanan sedang disiapkan…
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Check
-                    className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400"
-                    strokeWidth={2.5}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 break-words">
-                    Pesanan telah diterima merchant.
-                  </span>
-                </>
-              )}
+              <>
+                <Check
+                  className="h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400"
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+                <span className="min-w-0 break-words">
+                  Pesanan kamu sedang diproses ☕ Estimasi sampai: 15 menit.
+                </span>
+              </>
             </div>
           </div>
         )}
 
-        {phase === "success" && selected && (
+        {flowState === "done" && selectedStore && (
           <motion.div
             initial={reducedMotion ? false : { opacity: 0, scale: 0.92, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1074,11 +1091,10 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
               </div>
               <div>
                 <p className="font-semibold text-emerald-900 dark:text-emerald-200">
-                  Pesanan diproses
+                  Checkout selesai
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {selected.title} · Rp {formatIdr(total)} · estimasi siap
-                  15–30 menit.
+                  {selectedStore.title} · Rp {formatIdr(total)} · {deliveryMode} · live tracking mock aktif.
                 </p>
               </div>
             </div>
@@ -1909,9 +1925,9 @@ export function WarungLandingPage() {
                 End-to-end purchase flow
               </h2>
               <p className="mt-2 max-w-xl break-words text-sm text-zinc-600 sm:text-base dark:text-zinc-400">
-                Illustrative conversation: product selection, order summary,
-                QRIS-style payment, and verification. The sequence restarts
-                automatically for review.
+                Illustrative conversation: user asks for coffee, AI finds nearby
+                places, user picks one, AI offers menu upsell, then payment and
+                post-payment verification. The sequence restarts automatically.
               </p>
             </div>
             <button
