@@ -72,9 +72,9 @@ function formatRp(n: number): string {
 
 function guideUnknown(): WarungAssistantPayload {
   return {
-    content: `Aku **Warung Agent** — commerce mode **on**, filter realitas **off** (mock API). ☕🛒
+    content: `Aku **Warung Agent**. Cukup ketik kebutuhanmu, nanti aku bantu cari opsi, bandingkan, sampai checkout.
 
-Coba: **beli kopi 2**, **beli indomie**, atau ngaco: **beli ojek ke mars** (aku kasih “roadmap SKU” palsu).
+Coba: **beli kopi 2**, **beli indomie**, atau **cari yang paling murah**.
 
 _${WARUNG_TAGLINE_ID}_`,
   };
@@ -82,7 +82,7 @@ _${WARUNG_TAGLINE_ID}_`,
 
 function askMissingItem(): WarungAssistantPayload {
   return {
-    content: `Mau dibelikan apa? Sebut barang + jumlah. Katalog hari ini: kopi & grocery — tapi mock API-nya sudah **drama level unicorn**.
+    content: `Mau dibelikan apa? Sebut barang + jumlah. Saat ini katalog fokus di kopi & grocery.
 
 _${WARUNG_TAGLINE_ID}_`,
   };
@@ -233,7 +233,7 @@ export async function runWarungUserTextTurn(params: {
     return {
       newState,
       final: {
-        content: `✅ **Pesanan berhasil!** (mock, tapi vibes-nya sungguhan)\n\nPesanan: **${order.order_id}**\nBayar: **${paid.transaction_id}**\n\n${paid.message}\n\nMau belanja lagi? Atau nanti kita beneran gantiin super-app 😉\n\n_${WARUNG_TAGLINE_ID}_`,
+          content: `✅ **Pesanan berhasil diproses**\n\nPesanan: **${order.order_id}**\nBayar: **${paid.transaction_id}**\n\n${paid.message}\n\nMau belanja lagi? Tinggal kirim kebutuhan berikutnya.\n\n_${WARUNG_TAGLINE_ID}_`,
         commerce: {
           kind: "success",
           orderId: order.order_id,
@@ -296,7 +296,7 @@ export async function runWarungUserTextTurn(params: {
         intent,
       },
       final: {
-        content: `Belum ketemu match di katalog “real” (kopi/grocery). Coba **kopi**, **apel**, **indomie**, atau iseng **gojek / tokopedia / ojek** buat lihat SKU **roadmap** palsu.
+        content: `Belum ketemu item yang cocok di katalog saat ini. Coba kata kunci seperti **kopi**, **apel**, atau **indomie**.
 
 _${WARUNG_TAGLINE_ID}_`,
         toolUsages: [{ name: "find_items", status: "complete" }],
@@ -343,10 +343,7 @@ _${WARUNG_TAGLINE_ID}_`,
     quantity: qty,
   };
 
-  const hasVision = results.some((p) => p.id.startsWith("v"));
-  const intro = hasVision
-    ? `Nih hasilnya — campuran **katalog nyata (mock)** + **SKU kilat masa depan** kalau kamu iseng minta super-app/ojek 🚀`
-    : `Nih opsinya — pilih satu (tap **Pilih**, nomor urut, atau **yang murah**):`;
+  const intro = `Nih opsinya — pilih satu (tap **Pilih**, nomor urut, atau **yang murah**):`;
 
   return {
     newState,

@@ -28,7 +28,7 @@ const defaultAgents: Agent[] = [
   {
     id: "warung-agent",
     name: "Warung Agent",
-    description: "Belanja lewat chat (demo mock)",
+    description: "Ngobrol, belanja, checkout dalam satu chat",
     icon: ShoppingBag,
     color: "from-emerald-600 to-teal-500",
   },

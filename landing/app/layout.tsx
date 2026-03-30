@@ -30,6 +30,11 @@ export const metadata: Metadata = {
   title: "Warung Agent — Conversational commerce",
   description:
     "Natural-language shopping: structured product options, order confirmation, and in-thread payment flow.",
+  icons: {
+    icon: "/favicon.ico?v=2",
+    shortcut: "/favicon.ico?v=2",
+    apple: "/favicon.ico?v=2",
+  },
 };
 
 export default function RootLayout({
@@ -40,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${jetbrains.variable} font-sans min-h-dvh overflow-x-hidden antialiased`}
+        className={`${inter.variable} ${jetbrains.variable} font-sans min-h-dvh antialiased`}
       >
         <ThemeProvider>
           {children}

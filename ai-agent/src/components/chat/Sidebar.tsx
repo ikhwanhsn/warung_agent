@@ -213,7 +213,7 @@ export function Sidebar({
             className="flex items-center gap-2 flex-1 min-w-0 no-underline text-inherit hover:opacity-90 transition-opacity cursor-pointer bg-transparent border-0 text-left p-0"
           >
             <div className="relative flex items-center justify-center w-9 h-9 rounded-xl overflow-hidden bg-card shrink-0">
-              <img src="/logo.jpg" alt="Warung Agent" className="w-full h-full object-cover" />
+              <img src="/images/logo-transparent.png" alt="Warung Agent" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="font-semibold text-foreground truncate">Warung Agent</h1>
@@ -223,7 +223,7 @@ export function Sidebar({
         ) : (
           <Link to="/" className="flex items-center gap-2 flex-1 min-w-0 no-underline text-inherit hover:opacity-90 transition-opacity">
             <div className="relative flex items-center justify-center w-9 h-9 rounded-xl overflow-hidden bg-card shrink-0">
-              <img src="/logo.jpg" alt="Warung Agent" className="w-full h-full object-cover" />
+              <img src="/images/logo-transparent.png" alt="Warung Agent" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="font-semibold text-foreground truncate">Warung Agent</h1>

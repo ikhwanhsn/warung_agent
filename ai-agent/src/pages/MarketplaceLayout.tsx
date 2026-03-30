@@ -43,7 +43,7 @@ function MarketplaceSidebarContent({ onNavigate, showHeader = true, currentSecti
         <div className="flex items-center gap-2 p-3 sm:p-4 border-b border-border shrink-0">
           <Link to="/" className="flex items-center gap-2 flex-1 min-w-0 no-underline text-inherit hover:opacity-90 transition-opacity">
             <div className="relative flex items-center justify-center w-9 h-9 rounded-xl overflow-hidden bg-card shrink-0 border border-border">
-              <img src="/logo.jpg" alt="Warung Agent" className="w-full h-full object-cover" />
+              <img src="/images/logo-transparent.png" alt="Warung Agent" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="font-semibold text-foreground truncate">Marketplace</h1>

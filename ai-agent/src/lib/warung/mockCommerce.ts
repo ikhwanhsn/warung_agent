@@ -1,52 +1,52 @@
 import type { MockProduct } from "./types";
 
 /**
- * Today: coffee + groceries. “Vision” items appear when users ask for motor/ojek/marketplace/etc.
- * All prices are mock IDR for demo chaos.
+ * Demo catalog for coffee and groceries.
+ * "Vision" items appear for transport / marketplace intents.
  */
 export const MOCK_CATALOG: MockProduct[] = [
-  // Coffee chaos
+  // Coffee
   {
     id: "1",
     name: "Es Kopi Kenangan",
     price: 15000,
     provider: "Kopi Kenangan",
-    hype: "Klasik, aman, cocok buat demo investor",
+    hype: "Pilihan kopi klasik untuk kebutuhan harian",
   },
   {
     id: "2",
     name: "Kopi Janji Jiwa",
     price: 18000,
     provider: "Janji Jiwa",
-    hype: "Jiwa tenang, dompet ikut meditasi",
+    hype: "Profil rasa seimbang dengan harga menengah",
   },
   {
     id: "4",
     name: "Cold Brew Big Bang Single Origin",
     price: 22000,
     provider: "Warung Lab AI",
-    hype: "Diseduh dengan algoritma “sedikit lebih keras dari kemarin”",
+    hype: "Single origin dengan karakter rasa lebih bold",
   },
   {
     id: "5",
-    name: "Kopi Susu Gila Level 11",
+    name: "Kopi Susu Signature",
     price: 19000,
-    provider: "Ngopi Dulu Baru Mikir",
-    hype: "Gula? Optional. Adrenaline? Built-in.",
+    provider: "Ngopi Dulu",
+    hype: "Rasa manis seimbang untuk konsumsi harian",
   },
   {
     id: "6",
-    name: "Espresso Shot Time-Travel",
+    name: "Espresso Shot",
     price: 12000,
-    provider: "Chrono Café",
-    hype: "Rasanya seperti sudah bangun padahal belum tidur",
+    provider: "Chrono Cafe",
+    hype: "Konsentrat espresso untuk dorongan energi cepat",
   },
   {
     id: "7",
-    name: "Matcha Latte Panik Deadline",
+    name: "Matcha Latte",
     price: 24000,
     provider: "Green Rush",
-    hype: "Warna hijau, mood merah",
+    hype: "Alternatif non-kopi dengan rasa creamy",
   },
   // Groceries / warung
   {
@@ -54,102 +54,102 @@ export const MOCK_CATALOG: MockProduct[] = [
     name: "Apel Fuji 1kg",
     price: 30000,
     provider: "Toko Buah Segar",
-    hype: "1kg kebahagiaan + serat",
+    hype: "Buah segar untuk kebutuhan rumah tangga",
   },
   {
     id: "8",
-    name: "Bayam Hidroponik Anti-Gravity",
+    name: "Bayam Hidroponik",
     price: 8500,
-    provider: "Vertical Farm 9000",
-    hype: "Daunnya naik, harga tetap waras",
+    provider: "Vertical Farm",
+    hype: "Sayur segar dengan harga terjangkau",
   },
   {
     id: "9",
-    name: "Beras Organik 5kg (Desa Download)",
+    name: "Beras Organik 5kg",
     price: 95000,
-    provider: "Supply Chain Ngimpi",
-    hype: "Mock logistics: instant, real life: nanti dulu",
+    provider: "Supply Chain Nusantara",
+    hype: "Pilihan beras untuk kebutuhan masak harian",
   },
   {
     id: "10",
     name: "Indomie Goreng Party Pack",
     price: 55000,
-    provider: "Midnight Strategy Co.",
-    hype: "Hackathon fuel resmi",
+    provider: "Midnight Mart",
+    hype: "Paket ekonomis untuk stok rumah",
   },
   {
     id: "11",
     name: "Alpukat Mentega Jumbo",
     price: 18000,
-    provider: "Avocado DAO",
-    hype: "Smooth seperti pitch deck",
+    provider: "Avocado Farm",
+    hype: "Alpukat matang untuk konsumsi langsung",
   },
   {
     id: "12",
-    name: "Strawberry Metaverse Farm 250g",
+    name: "Strawberry Segar 250g",
     price: 35000,
-    provider: "Soil.exe",
-    hype: "Manisnya 30% real, 70% storytelling",
+    provider: "Soil Farm",
+    hype: "Buah segar untuk camilan atau dessert",
   },
   {
     id: "13",
-    name: "Telur Omega-3 Plot Twist",
+    name: "Telur Omega-3",
     price: 28000,
-    provider: "Kandang Narrative",
-    hype: "Isi 6, kejutan filosofis 1",
+    provider: "Kandang Sehat",
+    hype: "Sumber protein praktis untuk kebutuhan keluarga",
   },
   {
     id: "14",
-    name: "Roti Gandum “No Cap”",
+    name: "Roti Gandum",
     price: 14000,
-    provider: "Toast Trust Layer",
-    hype: "Gluten hadir, drama tidak",
+    provider: "Toast Bakery",
+    hype: "Roti gandum untuk sarapan ringan",
   },
 ];
 
-/** Roadmap fantasy SKUs — surfaced when user mentions transport / super-app / e-commerce giants */
+/** Vision SKUs — surfaced for transport / super-app / marketplace intents */
 export const VISION_CATALOG: MockProduct[] = [
   {
     id: "v1",
-    name: "Ojek Quantum (simulasi)",
+    name: "Ojek Quantum",
     price: 9900,
-    provider: "Gojek∞ Beta",
-    hype: "Routing: multiverse. Driver: belum hire. Ini cuma mock API ngabers.",
+    provider: "Partner Transport Demo",
+    hype: "Simulasi layanan transportasi dalam alur chat",
   },
   {
     id: "v2",
     name: "Motor Listrik Nirwana Express",
     price: 150000,
-    provider: "Tokopedia Warp",
-    hype: "Checkout 1 klik — di demo ini kliknya masih bohong tapi vision-nya serius.",
+    provider: "Marketplace Demo",
+    hype: "Simulasi checkout cepat lintas layanan",
   },
   {
     id: "v3",
     name: "Pesan Makan Se-Indonesia (aggregator)",
     price: 1,
     provider: "Warung Mesh Network",
-    hype: "Satu chat → ribuan warung. Roadmap; hari ini cuma JSON mock.",
+    hype: "Simulasi agregasi merchant dalam satu percakapan",
   },
   {
     id: "v4",
-    name: "Tiket Pesawat ke Bulan (ETA 2035)",
+    name: "Tiket Perjalanan",
     price: 999999999,
-    provider: "Lunar x402 Airways",
-    hype: "Bayar pakai mimpi dulu, USDC nanti.",
+    provider: "Travel Demo",
+    hype: "Simulasi pemesanan perjalanan berbasis percakapan",
   },
   {
     id: "v5",
     name: "Hotel Kapsul di orbit Jakarta",
     price: 450000,
-    provider: "Grab Nebula Stays",
-    hype: "Check-in: chat. Check-out: sadar ini demo.",
+    provider: "Hospitality Demo",
+    hype: "Simulasi pemesanan akomodasi melalui chat",
   },
   {
     id: "v6",
-    name: "Tokopedia + Gojek + Warung merge pack",
+    name: "Super-app bundle",
     price: 777000,
-    provider: "Super-App Singularity",
-    hype: "Tagline kita: replace them all — slowly, then suddenly.",
+    provider: "Super-app Demo",
+    hype: "Simulasi integrasi katalog, logistik, dan checkout",
   },
 ];
 
@@ -201,7 +201,7 @@ function dedupeById(items: MockProduct[]): MockProduct[] {
 }
 
 /**
- * Mock product search — groceries/coffee + optional “vision” roadmap rows.
+ * Mock product search — coffee/grocery + optional vision rows.
  */
 export function findItems(input: FindItemsInput): MockProduct[] {
   const q = input.query.trim();
@@ -233,7 +233,7 @@ export interface CreateOrderResult {
 
 export function createOrder(_input: CreateOrderInput): CreateOrderResult {
   const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
-  const chaos = ["WRG", "HYPE", "MOCK", "DEMO", "SHIP"][Math.floor(Math.random() * 5)];
+  const chaos = ["WRG", "ORD", "DEMO", "PAY", "SHIP"][Math.floor(Math.random() * 5)];
   return {
     order_id: `${chaos}-${suffix}`,
     status: "created",
@@ -251,11 +251,11 @@ export interface ExecutePaymentResult {
 }
 
 const PAYMENT_MESSAGES = [
-  "Payment successful — dompet mock ikut senang.",
-  "Berhasil! Dana (palsu) sudah masuk ke universe paralel merchant.",
-  "Transaksi cleared. Bank sentral demo mencatat… tidak ada apa-apa, itu kan mock.",
-  "Sukses! QRIS imajiner berkedip hijau.",
-  "Payment OK. Gojek/Tokopedia asli belum tersentuh — ini rehearsal.",
+  "Pembayaran berhasil diproses.",
+  "Pembayaran terkonfirmasi. Transaksi tercatat.",
+  "Transaksi berhasil. Status pembayaran telah diperbarui.",
+  "Pembayaran sukses. Merchant menerima notifikasi.",
+  "Pembayaran selesai. Lanjut ke proses pemenuhan pesanan.",
 ];
 
 /** Simulated payment latency (1–2s). */

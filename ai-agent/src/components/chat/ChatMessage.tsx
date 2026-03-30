@@ -251,7 +251,7 @@ function getUserAvatar(messageId: string) {
 export function ChatMessage({
   message,
   agentName = "Warung Agent",
-  agentAvatar = "/logo.jpg",
+  agentAvatar = "/images/logo-transparent.png",
   onRegenerate,
   isRegenerateDisabled,
   userAvatarUrl = null,
@@ -713,7 +713,7 @@ export function WarungLoadingMessage({ agentName = "Warung Agent" }: { agentName
     <div className="group flex gap-3 sm:gap-3.5 md:gap-4 lg:gap-5 px-3 py-3.5 sm:px-4 sm:py-5 md:px-5 md:py-5 lg:px-6 lg:py-6 bg-secondary/30 animate-fade-in min-w-0 max-w-full overflow-hidden">
       <div className="flex-shrink-0">
         <div className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-full overflow-hidden bg-card ring-2 ring-primary/20">
-          <img src="/logo.jpg" alt={agentName} className="w-full h-full object-cover" />
+          <img src="/images/logo-transparent.png" alt={agentName} className="w-full h-full object-cover" />
         </div>
       </div>
       <div className="flex-1 min-w-0 space-y-2">
@@ -797,7 +797,7 @@ export function LoadingStepMessage({
       {/* Avatar — matches ChatMessage assistant with subtle pulse */}
       <div className="flex-shrink-0">
         <div className="w-8 h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 rounded-full overflow-hidden bg-card loader-avatar-pulse ring-2 ring-transparent">
-          <img src="/logo.jpg" alt={agentName} className="w-full h-full object-cover" />
+          <img src="/images/logo-transparent.png" alt={agentName} className="w-full h-full object-cover" />
         </div>
       </div>
 

@@ -13,6 +13,7 @@ import {
   Layers,
   LayoutGrid,
   Loader2,
+  MapPin,
   Menu,
   MessageSquare,
   QrCode,
@@ -90,6 +91,13 @@ const DEMO_OPTIONS: readonly DemoShopOption[] = [
 ] as const;
 
 const DEMO_ONGKIR = 5_000;
+
+const DEMO_MERCHANT = {
+  name: "Warung Segar",
+  address: "Vila Acasa Bogor",
+  country: "Indonesia",
+  flag: "🇮🇩",
+} as const;
 
 const DEMO_PHASES = [
   "idle",
@@ -275,13 +283,15 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
       timers.push(setTimeout(() => !cancelled && setPhase(6), 4600));
       timers.push(setTimeout(() => !cancelled && setPhase(7), 5200));
       timers.push(setTimeout(() => !cancelled && setPhase(8), 8200));
+      timers.push(setTimeout(() => !cancelled && setPhase(9), 10_300));
+      timers.push(setTimeout(() => !cancelled && setPhase(10), 12_300));
       timers.push(
         setTimeout(() => {
           if (!cancelled) {
             setPhase(0);
             timers.push(setTimeout(cycle, 900));
           }
-        }, 11_200),
+        }, 15_600),
       );
     };
 
@@ -310,7 +320,7 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
 
   return (
     <div className="relative flex h-full max-h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-md backdrop-blur-xl dark:shadow-soft">
-      <div className="mb-3 flex shrink-0 items-center gap-2 border-b border-border pb-3">
+      <div className="mb-2 flex shrink-0 items-center gap-2 border-b border-border pb-2">
         <div
           className={`flex h-9 w-9 items-center justify-center rounded-xl ${demoHeaderIconGlow}`}
         >
@@ -324,9 +334,17 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
         </div>
         <span className="ml-auto flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
       </div>
+      <div className="mb-2 flex shrink-0 items-center gap-1.5 rounded-lg bg-accent/8 px-2.5 py-1.5 dark:bg-accent/12">
+        <MapPin className="h-3 w-3 shrink-0 text-accent" strokeWidth={2.25} />
+        <p className="truncate text-[10px] font-medium text-muted-foreground">
+          <span className="text-foreground">{DEMO_MERCHANT.flag} {DEMO_MERCHANT.name}</span>
+          {" · "}
+          {DEMO_MERCHANT.address}
+        </p>
+      </div>
       <div
         ref={heroScrollRef}
-        className="demo-chat-scroll flex min-h-0 flex-1 flex-col justify-start gap-3 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] touch-pan-y"
+        className="flex min-h-0 flex-1 flex-col justify-start gap-3 overflow-hidden"
       >
         <div className="flex flex-col gap-3 pb-1">
         {phase >= 1 && (
@@ -430,12 +448,42 @@ function HeroChatPreview({ reducedMotion }: { reducedMotion: boolean }) {
         )}
         {phase >= 8 && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-2 self-start rounded-full border border-emerald-300/80 bg-emerald-100/90 px-3 py-1.5 text-xs font-medium text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-950/50 dark:text-emerald-300"
+            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="self-start w-full max-w-[95%] rounded-2xl rounded-bl-md border border-emerald-300/75 bg-emerald-50/90 p-3 text-xs text-emerald-950 shadow-[0_0_26px_-12px_rgba(16,185,129,0.26)] dark:border-emerald-500/35 dark:bg-emerald-950/35 dark:text-emerald-100 dark:shadow-[0_0_30px_-12px_rgba(16,185,129,0.4)]"
           >
-            <CheckCircle2 className="h-4 w-4" />
-            Pesanan tercatat
+            <p className="mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-wide text-emerald-800 dark:text-emerald-300">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              Progress pesanan
+            </p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-100/80 px-2.5 py-1.5 dark:border-emerald-500/25 dark:bg-emerald-900/35">
+                <Check className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-300" />
+                <span className="font-medium">Pembayaran terverifikasi</span>
+              </div>
+              {phase < 9 ? (
+                <div className="flex items-center gap-2 rounded-lg border border-teal-300/70 bg-teal-50/85 px-2.5 py-1.5 dark:border-teal-500/25 dark:bg-teal-950/35">
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-700 dark:text-teal-300" />
+                  <span className="font-medium">Pesanan sedang disiapkan</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg border border-teal-300/70 bg-teal-100/80 px-2.5 py-1.5 dark:border-teal-500/25 dark:bg-teal-900/35">
+                  <Check className="h-3.5 w-3.5 shrink-0 text-teal-700 dark:text-teal-300" />
+                  <span className="font-medium">Pesanan selesai disiapkan</span>
+                </div>
+              )}
+              {phase < 10 ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-card/70 px-2.5 py-1.5 text-muted-foreground">
+                  <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
+                  <span>Siap diantar / diambil</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-100/80 px-2.5 py-1.5 dark:border-emerald-500/25 dark:bg-emerald-900/35">
+                  <Check className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-300" />
+                  <span className="font-medium">Pesanan siap diantar / diambil</span>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
         </div>
@@ -663,6 +711,23 @@ function ProductDemoPanel({ reducedMotion }: { reducedMotion: boolean }) {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="relative z-10 flex shrink-0 items-center gap-2 border-b border-border bg-gradient-to-r from-accent/5 via-transparent to-accent/5 px-3 py-2 sm:px-4 dark:from-accent/10 dark:to-accent/10">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/15 dark:bg-accent/20">
+          <MapPin className="h-3.5 w-3.5 text-accent" strokeWidth={2.25} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-semibold text-foreground sm:text-xs">
+            {DEMO_MERCHANT.flag} {DEMO_MERCHANT.name}
+          </p>
+          <p className="truncate text-[10px] text-muted-foreground">
+            {DEMO_MERCHANT.address}, {DEMO_MERCHANT.country}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full border border-emerald-300/60 bg-emerald-100/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-400">
+          Open
+        </span>
       </div>
 
       <div
@@ -1192,7 +1257,7 @@ export function WarungLandingPage() {
   }, []);
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
+    <div className="relative min-h-dvh">
       <div
         className="pointer-events-none fixed inset-0 -z-10 bg-[size:48px_48px] bg-grid-fade-light opacity-70 dark:bg-grid-fade dark:opacity-90"
         aria-hidden
@@ -1219,14 +1284,21 @@ export function WarungLandingPage() {
             className="group flex min-w-0 items-center gap-2 justify-self-start text-sm font-semibold tracking-tight text-zinc-950 dark:text-white"
           >
             <motion.span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-xs font-bold text-white shadow-glow sm:h-8 sm:w-8"
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-teal-400/35 bg-zinc-950/85 shadow-glow sm:h-8 sm:w-8"
               whileHover={
                 reduceMotion ? undefined : { scale: 1.06, rotate: -2 }
               }
               whileTap={reduceMotion ? undefined : { scale: 0.96 }}
               transition={{ type: "spring", stiffness: 420, damping: 22 }}
             >
-              W
+              <Image
+                src="/images/logo-transparent.png"
+                alt="Warung Agent"
+                fill
+                className="object-contain p-1"
+                sizes="36px"
+                priority
+              />
             </motion.span>
             <span className="truncate transition-colors group-hover:text-accent dark:group-hover:text-accent">
               Warung Agent

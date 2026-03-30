@@ -190,7 +190,7 @@ export default function SharedChat({
       <header className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2 md:gap-4 px-3 py-2.5 sm:px-4 sm:py-3 md:px-5 lg:px-6 border-b border-border bg-background/80 backdrop-blur-xl pt-[max(0.5rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-card">
-            <img src="/logo.jpg" alt="Warung Agent" className="w-full h-full object-cover" />
+            <img src="/images/logo-transparent.png" alt="Warung Agent" className="w-full h-full object-cover" />
           </div>
           <div className="min-w-0">
             <h1 className="font-semibold text-sm sm:text-base text-foreground truncate">

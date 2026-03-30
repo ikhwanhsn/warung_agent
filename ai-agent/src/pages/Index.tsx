@@ -920,7 +920,7 @@ export default function Index({ initialChatId, initialChat }: IndexProps = {}) {
       persistWarungMessages(finalMessages);
     } catch (err) {
       const errorContent =
-        err instanceof Error ? err.message : "Pembayaran gagal (demo). Coba lagi.";
+        err instanceof Error ? err.message : "Pembayaran gagal. Coba lagi.";
       const finalMessages: Message[] = [
         ...nextMessages,
         { ...assistantMessage, content: errorContent, isStreaming: false },
@@ -1100,7 +1100,7 @@ export default function Index({ initialChatId, initialChat }: IndexProps = {}) {
           <div className="absolute w-[70%] h-[70%] rounded-full border border-primary/20 loader-app-ring-slow" />
           {/* Center orb with logo */}
           <div className="relative z-10 flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-card border border-border shadow-xl loader-app-orb overflow-hidden">
-            <img src="/logo.jpg" alt="Warung Agent" className="w-full h-full object-cover" />
+            <img src="/images/logo-transparent.png" alt="Warung Agent" className="w-full h-full object-cover" />
           </div>
         </div>
         <p className="mt-8 text-sm font-medium text-foreground loader-text-fade">
