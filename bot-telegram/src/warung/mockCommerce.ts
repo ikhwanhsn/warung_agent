@@ -1155,16 +1155,148 @@ export interface FindItemsInput {
   location?: string | null;
 }
 
+const SEARCH_STOPWORDS = new Set([
+  "beli",
+  "beliin",
+  "pesan",
+  "order",
+  "mau",
+  "dong",
+  "tolong",
+  "cari",
+  "yang",
+  "dan",
+  "atau",
+  "ya",
+  "nih",
+  "aku",
+  "saya",
+  "buat",
+  "untuk",
+  "butuh",
+  "kebutuhan",
+  "ada",
+  "stok",
+  "apa",
+  "saja",
+  "aja",
+  "termurah",
+  "murah",
+]);
+
+const TOKEN_SYNONYMS: Record<string, string[]> = {
+  mi: ["mie", "indomie", "sedaap"],
+  mie: ["mi", "indomie", "sedaap"],
+  indomi: ["indomie"],
+  kopi: ["coffee", "espresso", "americano", "latte", "cappuccino"],
+  susu: ["milk", "uht"],
+  telur: ["egg"],
+  beras: ["rice"],
+  pedas: ["cabai", "sambal"],
+  stroberi: ["strawberry"],
+  strawberry: ["stroberi"],
+  buah: ["apel", "pisang", "jeruk", "alpukat", "pir", "strawberry", "stroberi"],
+  sayur: ["bayam", "kangkung", "sawi", "wortel", "kentang", "tomat", "brokoli"],
+  ayam: ["fillet", "nugget", "sosis"],
+};
+
+function normalizeToken(raw: string): string {
+  return raw
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function tokenizeForSearch(raw: string): string[] {
+  const base = raw
+    .toLowerCase()
+    .split(/\s+/)
+    .map(normalizeToken)
+    .filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
+  return Array.from(new Set(base));
+}
+
+function expandQueryTokens(tokens: string[]): string[] {
+  const expanded = new Set<string>(tokens);
+  for (const token of tokens) {
+    const synonyms = TOKEN_SYNONYMS[token];
+    if (!synonyms) continue;
+    for (const syn of synonyms) {
+      const n = normalizeToken(syn);
+      if (n.length >= 2) expanded.add(n);
+    }
+  }
+  return Array.from(expanded);
+}
+
+function scoreProductMatch(
+  product: MockProduct,
+  queryTokens: string[],
+  expandedTokens: string[],
+  originalQuery: string,
+): number {
+  const name = product.name.toLowerCase();
+  const provider = product.provider.toLowerCase();
+  const hype = (product.hype ?? "").toLowerCase();
+  const hay = `${name} ${provider} ${hype}`;
+
+  let score = 0;
+  if (hay.includes(originalQuery)) score += 90;
+  if (name.includes(originalQuery)) score += 40;
+
+  let matchedCore = 0;
+  for (const token of queryTokens) {
+    if (name.includes(token)) {
+      score += 30;
+      matchedCore += 1;
+      continue;
+    }
+    if (provider.includes(token)) {
+      score += 16;
+      matchedCore += 1;
+      continue;
+    }
+    if (hype.includes(token)) {
+      score += 8;
+      matchedCore += 1;
+    }
+  }
+
+  for (const token of expandedTokens) {
+    if (queryTokens.includes(token)) continue;
+    if (name.includes(token)) score += 8;
+    else if (hay.includes(token)) score += 3;
+  }
+
+  if (matchedCore >= 2) score += 25;
+  if (matchedCore === queryTokens.length && queryTokens.length > 0) score += 20;
+  if (queryTokens.length > 0 && matchedCore === 0) score -= 30;
+
+  return score;
+}
+
 function filterByQuery(catalog: MockProduct[], qRaw: string): MockProduct[] {
   const q = qRaw.trim().toLowerCase();
   if (!q) return [...catalog];
 
-  const tokens = q.split(/\s+/).filter((w) => w.length >= 2);
+  const queryTokens = tokenizeForSearch(q);
+  const expandedTokens = expandQueryTokens(queryTokens);
+  const ranked = catalog
+    .map((product) => ({
+      product,
+      score: scoreProductMatch(product, queryTokens, expandedTokens, q),
+    }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.product.price - b.product.price || a.product.name.localeCompare(b.product.name))
+    .map((row) => row.product);
+
+  if (ranked.length > 0) return ranked;
 
   return catalog.filter((p) => {
     const hay = `${p.name} ${p.provider} ${p.hype ?? ""}`.toLowerCase();
-    if (hay.includes(q)) return true;
-    return tokens.some((tok) => hay.includes(tok));
+    return expandedTokens.some((tok) => hay.includes(tok));
   });
 }
 

@@ -43,6 +43,13 @@ import type {
 
 type TurnResult = { newState: WarungConversationState; final: WarungAssistantPayload };
 type PatchFn = (p: WarungAssistantPayload) => void;
+const LOADING_COPY = {
+  understand: "Memahami kebutuhan kamu…",
+  findProducts: "Mencari produk yang paling pas…",
+  findStores: "Mencari toko terdekat…",
+  processPayment: "Memproses pembayaran…",
+} as const;
+
 
 // ─── State helpers ──────────────────────────────────────────────────
 
@@ -157,6 +164,9 @@ function detectQuantityChange(text: string, state: WarungConversationState): num
 interface SmartSelectionResult {
   product: MockProduct;
   quantity: number | null;
+  confidence: number;
+  scoreGap: number;
+  alternatives: MockProduct[];
 }
 
 function levenshtein(a: string, b: string): number {
@@ -192,25 +202,64 @@ function resolveSmartSelection(text: string, results: MockProduct[]): SmartSelec
   const purchaseQty = extractPurchaseQuantity(t);
   const pickQty = (fallback: number | null): number | null =>
     purchaseQty !== null && purchaseQty >= 1 && purchaseQty <= 99 ? purchaseQty : fallback;
+  const rankResultByText = (
+    userText: string,
+    fallbackQty: number | null,
+  ): SmartSelectionResult | null => {
+    const cleaned = userText.trim().toLowerCase();
+    if (cleaned.length < 2) return null;
+    const tokens = cleaned.split(/\s+/).filter((w) => w.length >= 2);
+    const ranked = results
+      .map((product) => {
+        const name = product.name.toLowerCase();
+        let score = 0;
+        if (name.includes(cleaned)) score += 90;
+        for (const token of tokens) {
+          if (token.length >= 3 && name.includes(token)) score += 22;
+          else if (token.length >= 4 && fuzzyTokenMatchesProduct(token, name)) score += 10;
+        }
+        return { product, score };
+      })
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score || a.product.price - b.product.price);
+    if (ranked.length === 0) return null;
+    const top = ranked[0];
+    const second = ranked[1];
+    const scoreGap = second ? top.score - second.score : top.score;
+    const confidence = Math.max(0, Math.min(1, top.score / (top.score + (second?.score ?? 0) + 1)));
+    return {
+      product: top.product,
+      quantity: pickQty(fallbackQty),
+      confidence,
+      scoreGap,
+      alternatives: ranked.slice(1, 4).map((x) => x.product),
+    };
+  };
 
   if (/murah|termurah|paling\s+murah|yang\s+murah/i.test(t)) {
-    return { product: results.reduce((a, b) => (a.price <= b.price ? a : b)), quantity: pickQty(null) };
+    return {
+      product: results.reduce((a, b) => (a.price <= b.price ? a : b)),
+      quantity: pickQty(null),
+      confidence: 1,
+      scoreGap: 999,
+      alternatives: [],
+    };
   }
 
   const bareN = parseInt(t, 10);
   if (Number.isFinite(bareN) && String(bareN) === t.trim() && bareN >= 1 && bareN <= results.length) {
-    return { product: results[bareN - 1], quantity: pickQty(null) };
+    return { product: results[bareN - 1], quantity: pickQty(null), confidence: 1, scoreGap: 999, alternatives: [] };
   }
 
   const ord = extractOrdinalFromText(t);
   if (ord && ord >= 1 && ord <= results.length) {
-    return { product: results[ord - 1], quantity: pickQty(null) };
+    return { product: results[ord - 1], quantity: pickQty(null), confidence: 1, scoreGap: 999, alternatives: [] };
   }
 
   if (t.split(/\s+/).length === 1) {
     const idxWord = ID_NUMBER_MAP[t];
     if (idxWord && idxWord >= 1 && idxWord <= results.length) {
-      return { product: results[idxWord - 1], quantity: pickQty(null) };
+      return { product: results[idxWord - 1], quantity: pickQty(null), confidence: 1, scoreGap: 999, alternatives: [] };
     }
   }
 
@@ -222,41 +271,20 @@ function resolveSmartSelection(text: string, results: MockProduct[]): SmartSelec
     .trim();
 
   if (textWithoutNum.length >= 2) {
-    for (const p of results) {
-      const pn = p.name.toLowerCase();
-      const textTokens = textWithoutNum.split(" ").filter((w) => w.length >= 2);
-      if (pn.includes(textWithoutNum) || textTokens.some((tok) => tok.length >= 3 && pn.includes(tok))) {
-        return { product: p, quantity: pickQty(numFromText) };
-      }
-    }
+    const ranked = rankResultByText(textWithoutNum, numFromText);
+    if (ranked) return ranked;
   }
 
   const stripped = t
     .replace(/^\s*(saya\s+|aku\s+)?(mau|pilih|ambil)\s+(yang\s+)?/i, "")
     .trim();
   if (stripped.length >= 2 && stripped !== t) {
-    for (const p of results) {
-      const pn = p.name.toLowerCase();
-      if (pn.includes(stripped) || stripped.split(" ").some((tok) => tok.length >= 3 && pn.includes(tok))) {
-        return { product: p, quantity: pickQty(extractNumberFromText(stripped)) };
-      }
-    }
+    const ranked = rankResultByText(stripped, extractNumberFromText(stripped));
+    if (ranked) return ranked;
   }
 
-  const userTokens = t.split(/\s+/).filter((w) => w.length >= 4);
-  for (const p of results) {
-    const pn = p.name.toLowerCase();
-    if (userTokens.some((tok) => fuzzyTokenMatchesProduct(tok, pn))) {
-      return { product: p, quantity: pickQty(null) };
-    }
-  }
-
-  for (const p of results) {
-    const pn = p.name.toLowerCase();
-    if (t.length >= 3 && (pn.includes(t) || t.includes(pn.slice(0, Math.min(6, pn.length))))) {
-      return { product: p, quantity: pickQty(null) };
-    }
-  }
+  const fallbackRanked = rankResultByText(t, null);
+  if (fallbackRanked) return fallbackRanked;
 
   return null;
 }
@@ -568,8 +596,8 @@ async function transitionToStoreSelection(
   state = { ...state, selected_item: product, quantity: qty, total_price: total };
 
   patch({
-    content: `**${product.name}** × ${qty} dipilih! Mencari toko terdekat… 📍`,
-    commerce: { kind: "status", message: "Mencari toko terdekat…" },
+    content: `**${product.name}** × ${qty} dipilih! ${LOADING_COPY.findStores} 📍`,
+    commerce: { kind: "status", message: LOADING_COPY.findStores },
     toolUsages: [{ name: "find_nearby_stores", status: "running" }],
     isStreaming: true,
   });
@@ -625,8 +653,8 @@ async function processPaymentFlow(state: WarungConversationState, patch: PatchFn
   state = { ...state, step: "paying" as const };
 
   patch({
-    content: "Memproses pembayaran… ⏳",
-    commerce: { kind: "status", message: "Memproses pembayaran…" },
+    content: `${LOADING_COPY.processPayment} ⏳`,
+    commerce: { kind: "status", message: LOADING_COPY.processPayment },
     toolUsages: [
       { name: "create_order", status: "running" },
       { name: "execute_payment", status: "running" },
@@ -686,6 +714,22 @@ export async function runWarungUserTextTurn(params: {
   const text = params.userText.trim();
   const patch = params.patchAssistant;
 
+  const emitUnderstanding = (): void =>
+    patch({
+      content: LOADING_COPY.understand,
+      commerce: { kind: "status", message: LOADING_COPY.understand },
+      toolUsages: [{ name: "understand_intent", status: "running" }],
+      isStreaming: true,
+    });
+
+  const emitFindProducts = (): void =>
+    patch({
+      content: LOADING_COPY.findProducts,
+      commerce: { kind: "status", message: LOADING_COPY.findProducts },
+      toolUsages: [{ name: "find_items", status: "running" }],
+      isStreaming: true,
+    });
+
   // ── GREETING FAST-PATH — runs before ANY state/step logic ────────
   // Unconditionally resets session and returns a warm intro, regardless of
   // what step the previous conversation was in.
@@ -706,6 +750,7 @@ export async function runWarungUserTextTurn(params: {
     if (!sel) {
       if (isGeminiConfigured()) {
         try {
+          emitUnderstanding();
           const smart = await geminiUnderstandIntent({
             userText: text,
             step: "selecting",
@@ -770,6 +815,26 @@ export async function runWarungUserTextTurn(params: {
           ? parsedSelecting.quantity
           : (state.intent?.quantity ?? state.quantity ?? 1);
 
+    // If user gave free text and top candidates are too close, clarify instead of mis-picking.
+    const explicitNumericPick = pickedByListIndex || /^(\d{1,2})\s*$/.test(trimmed);
+    const shouldClarifyAmbiguous =
+      !explicitNumericPick &&
+      sel.alternatives.length > 0 &&
+      sel.scoreGap <= 8 &&
+      sel.confidence < 0.7;
+    if (shouldClarifyAmbiguous) {
+      const options = [sel.product, ...sel.alternatives.slice(0, 2)];
+      return {
+        newState: state,
+        final: {
+          content:
+            `Biar nggak salah pilih, maksudmu yang mana?\n` +
+            options.map((p, i) => `${i + 1}. ${p.name} (Rp ${p.price.toLocaleString("id-ID")})`).join("\n") +
+            `\n\nKetik nomor (1/2/3) atau nama item yang paling pas.`,
+        },
+      };
+    }
+
     return transitionToStoreSelection(state, sel.product, qty, patch);
   }
 
@@ -801,6 +866,7 @@ export async function runWarungUserTextTurn(params: {
     if (!storeResult) {
       if (isGeminiConfigured()) {
         try {
+          emitUnderstanding();
           const smart = await geminiUnderstandIntent({
             userText: text,
             step: "choosing_location",
@@ -924,6 +990,7 @@ export async function runWarungUserTextTurn(params: {
       // Fall through to idle flow
     } else if (isGeminiConfigured()) {
       try {
+        emitUnderstanding();
         const smart = await geminiUnderstandIntent({
           userText: text,
           step: "reviewing",
@@ -1017,6 +1084,7 @@ Mau ganti toko? Ketik **ganti toko**.`,
     if (intent.intent === "unknown" && isScopedGeneralQuestion(text)) {
       if (isGeminiConfigured()) {
         try {
+          emitUnderstanding();
           const hints = findItems({ query: text, category: null, location: null })
             .slice(0, 5)
             .map((p) => `${p.name} (Rp ${p.price.toLocaleString("id-ID")})`);
@@ -1053,6 +1121,7 @@ Mau ganti toko? Ketik **ganti toko**.`,
 
     if (intent.intent === "unknown" && isGeminiConfigured()) {
       try {
+        emitUnderstanding();
         const smart = await geminiUnderstandIntent({ userText: text, step: "idle" });
         if (smart.action === "buy" && smart.item) {
           intent = {
@@ -1091,9 +1160,25 @@ Mau ganti toko? Ketik **ganti toko**.`,
 
   state = { ...state, step: "searching" as const };
 
+  emitFindProducts();
   await delaySearch();
 
-  const fullResults = findItems({ query: intent.item, category: null, location: intent.location });
+  let fullResults = findItems({ query: intent.item, category: null, location: intent.location });
+  let budgetNote = "";
+  if (intent.budget && Number.isFinite(intent.budget) && intent.budget > 0 && fullResults.length > 0) {
+    const withinBudget = fullResults.filter((p) => p.price <= intent.budget!);
+    if (withinBudget.length > 0) {
+      fullResults = withinBudget;
+      budgetNote = `\n\n_Filter budget aktif: maksimal ${formatRp(intent.budget)}._`;
+    } else {
+      // No exact budget match: keep nearest options first so user still gets useful recommendations.
+      fullResults = [...fullResults].sort(
+        (a, b) =>
+          Math.abs(a.price - intent.budget!) - Math.abs(b.price - intent.budget!) || a.price - b.price,
+      );
+      budgetNote = `\n\n_Tidak ada yang <= ${formatRp(intent.budget)}. Aku tampilkan yang paling dekat budget._`;
+    }
+  }
 
   if (fullResults.length === 0) {
     return {
@@ -1144,7 +1229,7 @@ Mau ganti toko? Ketik **ganti toko**.`,
   return {
     newState,
     final: {
-      content: `Nih opsinya — pilih satu (ketik nomor urut, nama item, atau **yang murah**):${listNote}\n\n_${WARUNG_TAGLINE_ID}_`,
+      content: `Nih opsinya — pilih satu (ketik nomor urut, nama item, atau **yang murah**):${listNote}${budgetNote}\n\n_${WARUNG_TAGLINE_ID}_`,
       commerce: { kind: "products", items: results, quantity: qty },
       toolUsages: [{ name: "find_items", status: "complete" }],
       isStreaming: false,
