@@ -233,6 +233,7 @@ export async function generateWarungReplyFromFacts(params: {
   facts: Record<string, unknown>;
   priorTurns: LlmChatTurn[];
   mode: WarungReplyMode;
+  modelOverride?: string;
 }): Promise<string> {
   const userContent = buildFactUserPrompt(params);
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
@@ -247,6 +248,7 @@ export async function generateWarungReplyFromFacts(params: {
   return callJatevoChat(messages, {
     temperature,
     max_tokens: params.mode === "patch" ? 400 : 2000,
+    model: params.modelOverride,
   });
 }
 

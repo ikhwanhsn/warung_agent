@@ -14,12 +14,18 @@ import {
 } from "./formatTelegram.js";
 import { getQrisDemoImageCached } from "./qrisImage.js";
 import {
-  generateWarungReplyFromFactsWithRetry,
   isGeminiConfigured,
   LLM_UNAVAILABLE_MESSAGE,
   type GeminiChatTurn,
 } from "./jatevoClient.js";
 import { buildAuthoritativeFacts, buildPatchFacts } from "./warungFacts.js";
+import { PurchaseHistoryRepository } from "./warung/purchaseHistoryRepo.js";
+import { routeUserIntent } from "./warung/intentRouter.js";
+import { WarungMemoryStore } from "./warung/memory.js";
+import { attachGroundingContext } from "./warung/grounding.js";
+import { logTurnEvent } from "./warung/observability.js";
+import { enforcePaymentConfirmation, validateUserInput } from "./warung/safety.js";
+import { generateReplyWithResilience } from "./warung/resilience.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -72,7 +78,32 @@ Ketik kebutuhan dalam bahasa Indonesia. Contoh: beli kopi 2, beli beras 1, beli 
 
 Setelah ada daftar produk, balas dengan nomor, nama item, atau kata yang murah. Lalu pilih toko terdekat, cek detail dan QRIS, lalu konfirmasi.
 
-Perintah: /start  /help  /reset`;
+Perintah: /start  /help  /history  /reset`;
+
+const HISTORY_TRIGGER_RE = /\b(riwayat|history)\b.*\b(beli|belanja|pesan|order|produk)\b|\b(beli|belanja|pesan|order|produk)\b.*\b(riwayat|history)\b/i;
+
+function formatRp(n: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(n);
+}
+
+function buildHistoryReply(
+  rows: ReturnType<PurchaseHistoryRepository["getRecentByChat"]>,
+): string {
+  if (rows.length === 0) {
+    return "Belum ada riwayat pembelian di chat ini.\n\nCoba beli produk dulu, lalu ketik /history lagi.";
+  }
+
+  const lines = rows.map((row, i) => {
+    const storeText = row.storeName ? ` | ${row.storeName}` : "";
+    return `${i + 1}. ${row.productName} x${row.quantity}\n   Total: ${formatRp(row.totalPrice)} | Order: ${row.orderId}${storeText}\n   Waktu: ${row.createdAt}`;
+  });
+
+  return `Riwayat pembelian kamu (terbaru):\n\n${lines.join("\n\n")}`;
+}
 
 async function main() {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
@@ -89,12 +120,16 @@ async function main() {
   }
 
   const allowedChats = parseAllowedChatIds();
+  const purchaseHistory = new PurchaseHistoryRepository(
+    path.resolve(__dirname, "../data/purchase-history.sqlite"),
+  );
   const stateByChat = new Map<number, WarungConversationState>();
   const llmHistoryByChat = new Map<number, GeminiChatTurn[]>();
   const lastSeenByChat = new Map<number, number>();
   const turnQueueByChat = new Map<number, Promise<void>>();
   /** Tracks whether the QRIS image was already sent in the current checkout session. */
   const qrisSentByChat = new Map<number, boolean>();
+  const memoryStore = new WarungMemoryStore();
   const MAX_LLM_TURNS = 20;
   const SESSION_IDLE_TTL_MS = 10 * 60 * 1000;
 
@@ -102,6 +137,7 @@ async function main() {
     stateByChat.set(chatId, initialWarungState());
     llmHistoryByChat.delete(chatId);
     qrisSentByChat.delete(chatId);
+    memoryStore.clearSession(chatId);
   }
 
   const runInChatQueue = (chatId: number, task: () => Promise<void>): Promise<void> => {
@@ -128,7 +164,7 @@ async function main() {
   bot.start(async (ctx) => {
     resetSession(ctx.chat.id);
     try {
-      const welcome = await generateWarungReplyFromFactsWithRetry({
+      const welcome = await generateReplyWithResilience({
         userText: "/start",
         facts: {
           schema: "onboarding",
@@ -148,7 +184,7 @@ async function main() {
 
   bot.help(async (ctx) => {
     try {
-      const help = await generateWarungReplyFromFactsWithRetry({
+      const help = await generateReplyWithResilience({
         userText: "/help",
         facts: {
           schema: "help",
@@ -168,7 +204,7 @@ async function main() {
   bot.command("reset", async (ctx) => {
     resetSession(ctx.chat.id);
     try {
-      const msg = await generateWarungReplyFromFactsWithRetry({
+      const msg = await generateReplyWithResilience({
         userText: "/reset",
         facts: {
           schema: "session_reset",
@@ -185,6 +221,11 @@ async function main() {
     }
   });
 
+  bot.command("history", async (ctx) => {
+    const rows = purchaseHistory.getRecentByChat(ctx.chat.id, 10);
+    await ctx.reply(buildHistoryReply(rows));
+  });
+
   bot.on("text", async (ctx, next) => {
     const text = ctx.message.text?.trim() ?? "";
     if (text.startsWith("/")) return next();
@@ -196,6 +237,7 @@ async function main() {
     }
 
     return runInChatQueue(chatId, async () => {
+      const startedAt = Date.now();
       const enqueue = createSerialQueue();
       const now = Date.now();
       const lastSeen = lastSeenByChat.get(chatId) ?? 0;
@@ -211,6 +253,42 @@ async function main() {
       }
 
       const state = stateByChat.get(chatId) ?? initialWarungState();
+      const route = routeUserIntent(text);
+      const inputSafety = validateUserInput(text);
+      if (!inputSafety.allowed) {
+        await ctx.reply("Pesanmu belum bisa diproses dengan aman. Coba tulis ulang lebih singkat dan jelas.");
+        logTurnEvent({
+          level: "warn",
+          event: "turn_blocked_by_safety",
+          chatId,
+          route: route.route,
+          stepBefore: state.step,
+          error: inputSafety.reason,
+        });
+        return;
+      }
+      memoryStore.touch(chatId, text);
+      const paymentSafety = enforcePaymentConfirmation(state, text);
+      if (
+        paymentSafety.requireConfirmation &&
+        !paymentSafety.safeToExecute &&
+        /\b(bayar|bayarin|proses|lanjut)\b/i.test(text)
+      ) {
+        await ctx.reply("Untuk keamanan pembayaran, tulis **ya** untuk konfirmasi atau **batal** untuk membatalkan.");
+        logTurnEvent({
+          level: "warn",
+          event: "payment_confirmation_required",
+          chatId,
+          route: route.route,
+          stepBefore: state.step,
+        });
+        return;
+      }
+      if (HISTORY_TRIGGER_RE.test(text)) {
+        const rows = purchaseHistory.getRecentByChat(chatId, 10);
+        await ctx.reply(buildHistoryReply(rows));
+        return;
+      }
       const stepBeforeTurn = state.step;
 
       const patchAssistant = (p: WarungAssistantPayload) => {
@@ -220,14 +298,19 @@ async function main() {
             const patchDraft = warungToPlainText(p.content);
             let patchText: string;
             try {
-              patchText = await generateWarungReplyFromFactsWithRetry({
+              const memory = memoryStore.buildContext(chatId, state);
+              patchText = await generateReplyWithResilience({
                 userText: text,
-                facts: buildPatchFacts({
-                  userText: text,
-                  patchPlain: patchDraft,
-                  toolUsages: p.toolUsages,
-                  isStreaming: p.isStreaming,
-                }),
+                facts: attachGroundingContext(
+                  buildPatchFacts({
+                    userText: text,
+                    patchPlain: patchDraft,
+                    toolUsages: p.toolUsages,
+                    isStreaming: p.isStreaming,
+                  }),
+                  memory,
+                  route.route,
+                ),
                 priorTurns: llmHistoryByChat.get(chatId) ?? [],
                 mode: "patch",
               });
@@ -253,20 +336,21 @@ async function main() {
       enqueue(async () => {
         await ctx.sendChatAction("typing");
         const prior = llmHistoryByChat.get(chatId) ?? [];
-        const facts = buildAuthoritativeFacts({
+        const memory = memoryStore.buildContext(chatId, newState);
+        const facts = attachGroundingContext(buildAuthoritativeFacts({
           userText: text,
           stepBeforeTurn,
           newState,
           final,
           draftPlain,
-        });
+        }), memory, route.route);
         let replyText: string;
         if (final.commerce?.kind === "success") {
           // Keep template as sent (✅ + exact IDs); LLM polish would drop the checkmark per style rules.
           replyText = draftPlain.trim() || LLM_UNAVAILABLE_MESSAGE;
         } else {
           try {
-            replyText = await generateWarungReplyFromFactsWithRetry({
+            replyText = await generateReplyWithResilience({
               userText: text,
               facts,
               priorTurns: prior,
@@ -279,6 +363,27 @@ async function main() {
         }
         await ctx.reply(replyText);
 
+        if (
+          final.commerce?.kind === "success" &&
+          state.selected_item &&
+          Number.isFinite(state.total_price) &&
+          state.total_price > 0
+        ) {
+          purchaseHistory.savePurchase({
+            chatId,
+            telegramUserId: ctx.from?.id ?? null,
+            telegramUsername: ctx.from?.username ?? null,
+            orderId: final.commerce.orderId,
+            transactionId: final.commerce.transactionId,
+            productId: state.selected_item.id,
+            productName: state.selected_item.name,
+            quantity: state.quantity,
+            totalPrice: state.total_price,
+            provider: state.selected_item.provider,
+            storeName: state.selected_store?.name ?? null,
+          });
+        }
+
         // Send QRIS once per checkout — only at the review step (showQris flag).
         // Session-level flag prevents the second send when user types "ya".
         if (final.showQris && !qrisSentByChat.get(chatId)) {
@@ -289,7 +394,7 @@ async function main() {
               final.commerce?.kind === "review" ? final.commerce.totalPrice : null;
             let caption: string;
             try {
-              caption = await generateWarungReplyFromFactsWithRetry({
+              caption = await generateReplyWithResilience({
                 userText: text,
                 facts: {
                   schema: "qris_payment_caption",
@@ -326,6 +431,15 @@ async function main() {
           chatId,
           nextTurns.length > MAX_LLM_TURNS ? nextTurns.slice(-MAX_LLM_TURNS) : nextTurns,
         );
+        logTurnEvent({
+          level: "info",
+          event: "turn_completed",
+          chatId,
+          route: route.route,
+          stepBefore: stepBeforeTurn,
+          stepAfter: newState.step,
+          latencyMs: Date.now() - startedAt,
+        });
       });
 
       await new Promise<void>((resolve) => {

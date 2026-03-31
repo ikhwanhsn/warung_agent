@@ -5,7 +5,6 @@ import {
   extractPurchaseQuantity,
   ID_NUMBER_MAP,
   ID_NUMBER_RE,
-  parseIndonesianNumber,
 } from "./intentParser.js";
 import { WARUNG_TAGLINE_ID } from "./copy.js";
 import {
@@ -293,44 +292,6 @@ export function tryResolveSelection(userText: string, results: MockProduct[]): M
   return resolveSmartSelection(userText, results)?.product ?? null;
 }
 
-// ─── Store selection (choosing_location step) ───────────────────────
-
-function resolveStoreSelection(text: string, stores: MockStore[]): MockStore | null {
-  if (stores.length === 0) return null;
-  const t = text.trim().toLowerCase();
-
-  if (/terdekat|paling\s+dekat|yang\s+dekat/i.test(t)) {
-    return stores.reduce((a, b) => (a.distanceKm <= b.distanceKm ? a : b));
-  }
-
-  const n = parseInt(t, 10);
-  if (Number.isFinite(n) && String(n) === t.trim() && n >= 1 && n <= stores.length) {
-    return stores[n - 1];
-  }
-
-  if (t.split(/\s+/).length === 1) {
-    const idxWord = parseIndonesianNumber(t);
-    if (idxWord && idxWord >= 1 && idxWord <= stores.length) {
-      return stores[idxWord - 1];
-    }
-  }
-
-  const ord = extractOrdinalFromText(t);
-  if (ord && ord >= 1 && ord <= stores.length) {
-    return stores[ord - 1];
-  }
-
-  for (const s of stores) {
-    const sn = s.name.toLowerCase();
-    const tokens = t.split(/\s+/).filter((w) => w.length >= 3);
-    if (tokens.some((tok) => sn.includes(tok))) {
-      return s;
-    }
-  }
-
-  return null;
-}
-
 // ─── Formatting helpers ─────────────────────────────────────────────
 
 function formatRp(n: number): string {
@@ -577,9 +538,9 @@ export function applyProductSelection(
   }
 
   return {
-    newState: { ...newState, step: "choosing_location" },
+    newState: { ...newState, step: "reviewing" },
     final: {
-      content: `Oke, **${product.name}** × ${quantity} = **${formatRp(total)}**.\n\nMencari toko terdekat…`,
+      content: `Oke, **${product.name}** × ${quantity} = **${formatRp(total)}**.\n\nMencari toko terdekat secara otomatis…`,
     },
   };
 }
@@ -614,19 +575,16 @@ async function transitionToStoreSelection(
     };
   }
 
+  const nearestStore = stores[0]!;
+
   return {
-    newState: { ...state, step: "choosing_location", nearbyStores: stores, selected_store: null },
+    newState: { ...state, step: "reviewing", nearbyStores: stores, selected_store: nearestStore },
     final: {
-      content: `**${product.name}** × ${qty} = **${formatRp(total)}**\n\nPilih toko terdekat (ketik nomor, nama toko, atau **yang terdekat**):`,
-      commerce: {
-        kind: "stores",
-        stores,
-        itemName: product.name,
-        quantity: qty,
-        unitPrice: product.price,
-      },
+      content: buildReviewText(product, qty, total, nearestStore),
+      commerce: buildReviewCommerce(product, qty, total, nearestStore),
       toolUsages: [{ name: "find_nearby_stores", status: "complete" }],
       isStreaming: false,
+      showQris: true,
     },
   };
 }
@@ -838,73 +796,6 @@ export async function runWarungUserTextTurn(params: {
     return transitionToStoreSelection(state, sel.product, qty, patch);
   }
 
-  // ── CHOOSING_LOCATION step ────────────────────────────────────────
-
-  if (state.step === "choosing_location") {
-    if (isNegative(text)) {
-      return {
-        newState: initialWarungState(),
-        final: { content: "Oke dibatalin. Mau beli yang lain? Ketik aja barangnya 🛒" },
-      };
-    }
-
-    // "ganti item" / "pilih barang lain"
-    if (/\b(ganti|ubah|pilih)\s+(item|barang|produk)\b/i.test(text) || /\b(barang|item|produk)\s+(lain|beda)\b/i.test(text)) {
-      if (state.searchResults.length > 0) {
-        return {
-          newState: { ...state, step: "selecting", selected_store: null },
-          final: {
-            content: "Oke, pilih produk lain dari daftar sebelumnya:",
-            commerce: { kind: "products", items: state.searchResults, quantity: state.quantity },
-          },
-        };
-      }
-    }
-
-    const storeResult = resolveStoreSelection(text, state.nearbyStores);
-
-    if (!storeResult) {
-      if (isGeminiConfigured()) {
-        try {
-          emitUnderstanding();
-          const smart = await geminiUnderstandIntent({
-            userText: text,
-            step: "choosing_location",
-            selectedItem: state.selected_item
-              ? { name: state.selected_item.name, price: state.selected_item.price, quantity: state.quantity }
-              : null,
-            storeOptions: state.nearbyStores.map((s) => ({
-              name: s.name,
-              address: s.address,
-              distanceKm: s.distanceKm,
-            })),
-          });
-          if (smart.action === "select_item" && smart.itemIndex) {
-            const idx = smart.itemIndex;
-            if (idx >= 1 && idx <= state.nearbyStores.length) {
-              return transitionToReview(state, state.nearbyStores[idx - 1]);
-            }
-          }
-          if (smart.action === "cancel") {
-            return {
-              newState: initialWarungState(),
-              final: { content: "Oke dibatalin. Mau beli yang lain?" },
-            };
-          }
-        } catch { /* fall through */ }
-      }
-
-      return {
-        newState: state,
-        final: {
-          content: "Belum kebaca. Ketik nomor toko (1, 2, …), nama toko, atau **yang terdekat** 📍",
-        },
-      };
-    }
-
-    return transitionToReview(state, storeResult);
-  }
-
   // ── REVIEWING / CONFIRMING step ───────────────────────────────────
 
   if (state.step === "reviewing" || state.step === "confirming") {
@@ -945,25 +836,6 @@ export async function runWarungUserTextTurn(params: {
           content: `Jumlah diubah ke **${newQty}**. Total: **${formatRp(newTotal)}**.\n\nKetik **ya** untuk bayar atau **batal** untuk membatalkan.`,
         },
       };
-    }
-
-    // "ganti toko"
-    if (/\b(ganti|ubah|pilih)\s+(toko|lokasi|tempat)\b/i.test(text) || /\btoko\s+(lain|beda)\b/i.test(text)) {
-      if (state.nearbyStores.length > 0 && state.selected_item) {
-        return {
-          newState: { ...state, step: "choosing_location", selected_store: null },
-          final: {
-            content: "Oke, pilih toko lain:",
-            commerce: {
-              kind: "stores",
-              stores: state.nearbyStores,
-              itemName: state.selected_item.name,
-              quantity: state.quantity,
-              unitPrice: state.selected_item.price,
-            },
-          },
-        };
-      }
     }
 
     // "ganti item"
@@ -1029,7 +901,7 @@ export async function runWarungUserTextTurn(params: {
             final: {
               content: `Ketik **ya** untuk konfirmasi bayar, atau **batal** untuk membatalkan.
 Mau ubah jumlah? Ketik angka baru (misal **2** atau **dua**).
-Mau ganti toko? Ketik **ganti toko**.`,
+Mau ganti item? Ketik **ganti item**.`,
               commerce: state.selected_store && state.selected_item
                 ? buildReviewCommerce(state.selected_item, state.quantity, state.total_price, state.selected_store)
                 : undefined,

@@ -49,3 +49,8 @@ export {
   runWarungUserTextTurn,
   runWarungConfirmTurn,
 } from "./warungTurn.js";
+export { routeUserIntent } from "./intentRouter.js";
+export { WarungMemoryStore } from "./memory.js";
+export { attachGroundingContext } from "./grounding.js";
+export { logTurnEvent } from "./observability.js";
+export { validateUserInput, enforcePaymentConfirmation } from "./safety.js";

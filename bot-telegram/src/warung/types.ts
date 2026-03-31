@@ -15,7 +15,6 @@ export type WarungStep =
   | "idle"
   | "searching"
   | "selecting"
-  | "choosing_location"
   | "reviewing"
   | "confirming" // legacy — treated same as reviewing
   | "paying"
