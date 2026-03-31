@@ -363,3 +363,22 @@ export async function answerScopedQuestionWithGemini(params: {
     mode: "qa",
   });
 }
+
+export async function answerNoCatalogMatchWithGemini(params: {
+  userText: string;
+  catalogScope: string;
+  suggestedKeywords: string[];
+}): Promise<string> {
+  return generateWarungReplyFromFactsWithRetry({
+    userText: params.userText,
+    facts: {
+      schema: "catalog_no_match",
+      catalogScope: params.catalogScope,
+      suggestedKeywords: params.suggestedKeywords,
+      instruction:
+        "User query did not match catalog items. Reply in Indonesian, mention that requested item was not found in catalogScope, and suggest relevant alternative keywords from suggestedKeywords. Keep it concise and natural for Telegram.",
+    },
+    priorTurns: [],
+    mode: "final",
+  });
+}

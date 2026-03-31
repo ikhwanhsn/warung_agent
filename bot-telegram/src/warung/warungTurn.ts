@@ -28,6 +28,7 @@ import {
   isGeminiConfigured,
   geminiUnderstandIntent,
   answerScopedQuestionWithGemini,
+  answerNoCatalogMatchWithGemini,
 } from "../jatevoClient.js";
 import type {
   CartLineItem,
@@ -1114,10 +1115,34 @@ Mau ganti item? Ketik **ganti item**.`,
   }
 
   if (fullResults.length === 0) {
+    const fallbackNoMatch =
+      `Maaf, belum ketemu "${intent.item}" di katalog kopi & grocery ini. ` +
+      `Coba kata kunci seperti kopi, espresso, apel, bayam, beras, indomie, tisu, Qtela, atau Yakult.\n\n` +
+      `_${WARUNG_TAGLINE_ID}_`;
+    if (isGeminiConfigured()) {
+      try {
+        emitUnderstanding();
+        const dynamicNoMatch = await answerNoCatalogMatchWithGemini({
+          userText: text,
+          catalogScope: "kopi & grocery",
+          suggestedKeywords: ["kopi", "espresso", "apel", "bayam", "beras", "indomie", "tisu", "Qtela", "Yakult"],
+        });
+        return {
+          newState: { ...state, step: "idle", searchResults: [], intent },
+          final: {
+            content: `${dynamicNoMatch}\n\n_${WARUNG_TAGLINE_ID}_`,
+            toolUsages: [{ name: "find_items", status: "complete" }],
+            isStreaming: false,
+          },
+        };
+      } catch (err) {
+        console.error("[warung-brain] no-match dynamic fallback:", err);
+      }
+    }
     return {
       newState: { ...state, step: "idle", searchResults: [], intent },
       final: {
-        content: `Belum ketemu di katalog **kopi & grocery** ini. Coba kata kunci seperti **kopi**, **espresso**, **apel**, **bayam**, **beras**, atau **indomie**.\n\n_${WARUNG_TAGLINE_ID}_`,
+        content: fallbackNoMatch,
         toolUsages: [{ name: "find_items", status: "complete" }],
         isStreaming: false,
       },
