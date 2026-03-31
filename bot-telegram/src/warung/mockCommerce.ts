@@ -1633,8 +1633,17 @@ const SEARCH_STOPWORDS = new Set([
   "ada",
   "stok",
   "apa",
+  "apakah",
+  "kah",
+  "gimana",
+  "bagaimana",
+  "kenapa",
+  "mengapa",
   "saja",
   "aja",
+  "sih",
+  "ya?",
+  "yaa",
   "termurah",
   "murah",
 ]);
@@ -1803,6 +1812,38 @@ function filterByQuery(catalog: MockProduct[], qRaw: string): MockProduct[] {
     const hay = `${p.name} ${p.provider} ${p.hype ?? ""}`.toLowerCase();
     return expandedTokens.some((tok) => hay.includes(tok));
   });
+}
+
+export function suggestNoMatchAlternatives(query: string, limit = 8): string[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const queryTokens = tokenizeForSearch(q);
+  const expandedTokens = expandQueryTokens(queryTokens);
+
+  const ranked = MOCK_CATALOG
+    .map((product) => ({
+      product,
+      score: scoreProductMatch(product, queryTokens, expandedTokens, q),
+    }))
+    .sort((a, b) => b.score - a.score || a.product.price - b.product.price);
+
+  const pickedNames: string[] = [];
+  const seen = new Set<string>();
+
+  for (const row of ranked) {
+    // Keep only genuinely related rows for dynamic fallback hints.
+    if (row.score <= 0) break;
+    const name = row.product.name.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pickedNames.push(name);
+    if (pickedNames.length >= limit) break;
+  }
+
+  return pickedNames;
 }
 
 export function findItems(input: FindItemsInput): MockProduct[] {

@@ -23,6 +23,7 @@ import {
   findItems,
   findNearbyStores,
   MAX_PRODUCT_LIST_RESULTS,
+  suggestNoMatchAlternatives,
 } from "./mockCommerce.js";
 import {
   isGeminiConfigured,
@@ -1115,9 +1116,14 @@ Mau ganti item? Ketik **ganti item**.`,
   }
 
   if (fullResults.length === 0) {
+    const dynamicAlternatives = suggestNoMatchAlternatives(intent.item, 8);
+    const suggestionLine =
+      dynamicAlternatives.length > 0
+        ? `Coba yang mirip di katalog: ${dynamicAlternatives.join(", ")}.`
+        : "Coba sebut item lebih spesifik (misalnya merek, varian, atau ukuran).";
     const fallbackNoMatch =
       `Maaf, belum ketemu "${intent.item}" di katalog kopi & grocery ini. ` +
-      `Coba kata kunci seperti kopi, espresso, apel, bayam, beras, indomie, tisu, Qtela, atau Yakult.\n\n` +
+      `${suggestionLine}\n\n` +
       `_${WARUNG_TAGLINE_ID}_`;
     if (isGeminiConfigured()) {
       try {
@@ -1125,7 +1131,10 @@ Mau ganti item? Ketik **ganti item**.`,
         const dynamicNoMatch = await answerNoCatalogMatchWithGemini({
           userText: text,
           catalogScope: "kopi & grocery",
-          suggestedKeywords: ["kopi", "espresso", "apel", "bayam", "beras", "indomie", "tisu", "Qtela", "Yakult"],
+          suggestedKeywords:
+            dynamicAlternatives.length > 0
+              ? dynamicAlternatives
+              : ["kopi", "grocery", "beras", "mie", "telur"],
         });
         return {
           newState: { ...state, step: "idle", searchResults: [], intent },
