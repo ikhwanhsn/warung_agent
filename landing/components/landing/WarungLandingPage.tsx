@@ -19,6 +19,7 @@ import {
   QrCode,
   Repeat,
   Search,
+  Send,
   ShoppingBag,
   Sparkles,
   User,
@@ -32,6 +33,7 @@ import {
   WARUNG_AGENT_URL,
   WARUNG_APP_URL,
   WARUNG_DOCS_URL,
+  WARUNG_TELEGRAM_BOT_URL,
 } from "@/lib/constants";
 import Image from "next/image";
 import Link from "next/link";
@@ -1370,6 +1372,15 @@ export function WarungLandingPage() {
           <div className="flex shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
             <ThemeToggle />
             <a
+              href={WARUNG_TELEGRAM_BOT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden h-10 min-h-10 touch-manipulation items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-100 px-3 text-xs font-semibold text-zinc-800 transition hover:border-accent/40 hover:bg-accent/5 dark:border-white/15 dark:bg-white/5 dark:text-zinc-100 md:inline-flex"
+            >
+              <Send className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Telegram
+            </a>
+            <a
               href={WARUNG_APP_URL}
               target="_blank"
               rel="noopener noreferrer"
@@ -1523,6 +1534,16 @@ export function WarungLandingPage() {
               onClick={() => setMobileNavOpen(false)}
             >
               Agent
+            </a>
+            <a
+              href={WARUNG_TELEGRAM_BOT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex min-h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-100 px-4 text-sm font-semibold text-zinc-800 transition hover:border-accent/40 hover:text-zinc-950 dark:border-white/15 dark:bg-white/5 dark:text-zinc-100 dark:hover:border-accent/40"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              <Send className="h-4 w-4 shrink-0" aria-hidden />
+              Telegram bot
             </a>
             <a
               href={WARUNG_APP_URL}
@@ -2191,6 +2212,15 @@ export function WarungLandingPage() {
               Open agent
             </a>
             <a
+              href={WARUNG_TELEGRAM_BOT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 min-h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-8 text-sm font-semibold text-zinc-800 transition hover:border-accent/40 hover:bg-accent/5 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:w-auto"
+            >
+              <Send className="h-4 w-4 shrink-0" aria-hidden />
+              Telegram bot
+            </a>
+            <a
               href={WARUNG_APP_URL}
               target="_blank"
               rel="noopener noreferrer"
@@ -2220,6 +2250,15 @@ export function WarungLandingPage() {
           <p className="font-semibold text-zinc-900 dark:text-zinc-300">
             Warung Agent
           </p>
+          <a
+            href={WARUNG_TELEGRAM_BOT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 font-medium text-primary transition hover:text-accent dark:text-accent/90 dark:hover:text-accent"
+          >
+            <Send className="h-4 w-4 shrink-0" aria-hidden />
+            Telegram @warungagent_bot
+          </a>
           <p className="break-words">
             Conversational commerce platform · © {new Date().getFullYear()}
           </p>

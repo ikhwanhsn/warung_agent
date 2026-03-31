@@ -9,3 +9,8 @@ export const WARUNG_DOCS_URL =
 /** Public hosted AI agent app. */
 export const WARUNG_AGENT_URL =
   process.env.NEXT_PUBLIC_WARUNG_AGENT_URL ?? "https://agent.warungagent.fun";
+
+/** Telegram bot (opens in Telegram app or web). */
+export const WARUNG_TELEGRAM_BOT_URL =
+  process.env.NEXT_PUBLIC_WARUNG_TELEGRAM_BOT_URL ??
+  "https://t.me/warungagent_bot";
