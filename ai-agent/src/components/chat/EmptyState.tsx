@@ -36,6 +36,11 @@ const shots: Array<{
     line: "Lanjut pembayaran langsung dari chat",
     prompt: "lanjut checkout kopi",
   },
+  {
+    icon: Tag,
+    line: "Stok grocery warung — mie, beras, sayur",
+    prompt: "beli indomie 1",
+  },
 ];
 
 export function EmptyState({ onSelectPrompt }: EmptyStateProps) {
@@ -68,7 +73,7 @@ export function EmptyState({ onSelectPrompt }: EmptyStateProps) {
       </h2>
 
       <p className="mt-2 text-center text-sm sm:text-base text-muted-foreground max-w-md font-medium">
-        Bukan form. Bukan 7 layar. Coba tap bawah — agent ini bisa lebih dari yang kamu kira.
+        Kopi & grocery di satu alur chat — bukan form, bukan 7 layar. Tap contoh di bawah.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">

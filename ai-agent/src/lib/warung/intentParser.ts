@@ -4,7 +4,7 @@ function detectIntentKind(t: string): WarungIntentKind {
   if (/\b(kirim|antar|delivery|titip)\b/i.test(t)) return "send_item";
   if (/\b(beli|pesan|order|mau\s+beli|checkout)\b/i.test(t)) {
     if (
-      /\b(kopi|minuman|minum|es\s|teh|jus|makan|nasi|apel|buah|snack|food|sayur|beras|indomie|mi\s|telur|roti|gula|minyak|kecap|cabai|wortel|kentang|bayam|stroberi|strawberry|alpukat|matcha)\b/i.test(
+      /\b(kopi|espresso|latte|cappuccino|americano|cold\s*brew|biji\s*kopi|kopi\s*bubuk|minuman|minum|es\s|teh|jus|susu|coklat|makan|nasi|apel|buah|snack|food|sayur|sembako|grocery|beras|indomie|mie\s|mi\s|instan|telur|roti|gula|garam|merica|bawang|minyak|kecap|cabai|wortel|kentang|bayam|kangkung|tomat|stroberi|strawberry|alpukat|matcha|keju|sarden|kacang|biskuit|tahu|tempe|jeruk|pir|ikan|ayam|daging)\b/i.test(
         t
       )
     )
@@ -24,6 +24,7 @@ export function parseIntent(raw: string): ParsedIntent {
   const intent = detectIntentKind(t);
 
   let quantity = 1;
+  let quantityExplicit = false;
   let rest = t
     .replace(/^\s*(beli|pesan|order|mau\s+beli|mau|checkout)\s+/i, "")
     .replace(/^\s*(kirim|antar)\s+/i, "")
@@ -32,7 +33,10 @@ export function parseIntent(raw: string): ParsedIntent {
   const qtyTail = rest.match(/\b(\d{1,2})\s*$/);
   if (qtyTail) {
     const n = parseInt(qtyTail[1], 10);
-    if (Number.isFinite(n) && n >= 1) quantity = Math.min(99, n);
+    if (Number.isFinite(n) && n >= 1) {
+      quantity = Math.min(99, n);
+      quantityExplicit = true;
+    }
     rest = rest.replace(/\b\d{1,2}\s*$/, "").trim();
   }
 
@@ -57,6 +61,7 @@ export function parseIntent(raw: string): ParsedIntent {
     intent,
     item,
     quantity: quantity < 1 ? 1 : quantity,
+    quantityExplicit,
     location,
     budget,
     notes,

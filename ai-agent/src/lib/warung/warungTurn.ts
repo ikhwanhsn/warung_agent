@@ -1,6 +1,12 @@
 import { parseIntent } from "./intentParser";
 import { WARUNG_TAGLINE_ID } from "./copy";
 import {
+  clarifyNonCommerceTopic,
+  clarifyOutsideCatalogShopping,
+  isNonCommerceMessage,
+  isOutOfScopeShoppingRequest,
+} from "./scopeGuard";
+import {
   createOrder,
   delaySearch,
   executePayment,
@@ -72,9 +78,11 @@ function formatRp(n: number): string {
 
 function guideUnknown(): WarungAssistantPayload {
   return {
-    content: `Aku **Warung Agent**. Cukup ketik kebutuhanmu, nanti aku bantu cari opsi, bandingkan, sampai checkout.
+    content: `Aku **Warung Agent** — fokus **kopi & grocery** (minuman kopi + kebutuhan warung seperti mie, beras, sayur, telur).
 
-Coba: **beli kopi 2**, **beli indomie**, atau **cari yang paling murah**.
+Ketik kebutuhanmu, nanti aku bantu cari opsi, bandingkan, sampai checkout.
+
+Coba: **beli kopi 2**, **beli beras 1**, **beli indomie**, atau **cari yang paling murah**.
 
 _${WARUNG_TAGLINE_ID}_`,
   };
@@ -82,7 +90,58 @@ _${WARUNG_TAGLINE_ID}_`,
 
 function askMissingItem(): WarungAssistantPayload {
   return {
-    content: `Mau dibelikan apa? Sebut barang + jumlah. Saat ini katalog fokus di kopi & grocery.
+    content: `Mau dibelikan apa? Sebut barang + jumlah. Katalog demo hanya **kopi & grocery** (bukan elektronik, travel, dll.).
+
+_${WARUNG_TAGLINE_ID}_`,
+  };
+}
+
+const CATALOG_QUESTION_HINT =
+  /\b(apa\s+saja|apa aja|ada|stok|tersedia|menu|list|daftar|pilihan|jenis|varian|jual|punya|barang|produk|katalog)\b/i;
+const CATALOG_DOMAIN_HINT =
+  /\b(kopi|grocery|sembako|warung|beras|mie|mi|indomie|telur|sayur|buah|roti|minuman|snack|daging|ayam|ikan)\b/i;
+
+function extractCatalogQueryFromQuestion(text: string): string | null {
+  const t = text.toLowerCase().trim();
+  if (!t) return null;
+  if (!CATALOG_QUESTION_HINT.test(t) && !CATALOG_DOMAIN_HINT.test(t)) return null;
+
+  const cleaned = t
+    .replace(/\b(apa\s+saja|apa aja|yang|bisa|dijual|dibeli|aku|kamu|nih|dong|ya|min|tolong|minta|lihat|cek)\b/g, " ")
+    .replace(/\b(ada|stok|tersedia|menu|list|daftar|pilihan|jenis|varian|jual|punya|barang|produk|katalog)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return null;
+
+  const generic = new Set([
+    "kopi",
+    "grocery",
+    "sembako",
+    "warung",
+    "barang",
+    "produk",
+    "katalog",
+    "item",
+    "menu",
+    "list",
+    "daftar",
+  ]);
+  const specificTokens = cleaned.split(" ").filter((w) => w.length >= 2 && !generic.has(w));
+  if (specificTokens.length === 0) return null;
+  return specificTokens.join(" ");
+}
+
+function guideCatalogOverview(): WarungAssistantPayload {
+  return {
+    content: `Bisa banget 👍 Katalogku fokus **kopi & grocery**.
+
+Kategori utama:
+- **Coffee drinks & beans**: espresso, americano, latte, cappuccino, cold brew, beans, syrup, oat milk.
+- **Grocery harian**: beras, mie instan, telur, roti, sayur, buah, bumbu dapur, protein.
+
+Coba langsung tanya spesifik biar aku kasih list:
+**ada beras apa saja**, **menu kopi apa saja**, **stok telur**, atau langsung **beli beras 2**.
 
 _${WARUNG_TAGLINE_ID}_`,
   };
@@ -95,6 +154,7 @@ function mergeIntent(base: ParsedIntent | null, next: ParsedIntent, raw: string)
     intent: next.intent !== "unknown" ? next.intent : base.intent,
     item: next.item ?? base.item,
     quantity: hasDigit ? next.quantity : base.quantity,
+    quantityExplicit: hasDigit ? next.quantityExplicit : base.quantityExplicit,
     location: next.location ?? base.location,
     budget: next.budget ?? base.budget,
     notes: next.notes ?? base.notes,
@@ -159,7 +219,23 @@ export async function runWarungUserTextTurn(params: {
         },
       };
     }
-    return applyProductSelection(state, picked, state.intent?.quantity ?? state.quantity ?? 1);
+    const parsedSelecting = parseIntent(text);
+    const trimmed = text.trim();
+    const indexOnly = /^(\d{1,2})\s*$/.test(trimmed);
+    const indexNum = indexOnly ? parseInt(trimmed, 10) : NaN;
+    const pickedByListIndex =
+      indexOnly &&
+      Number.isFinite(indexNum) &&
+      indexNum >= 1 &&
+      indexNum <= state.searchResults.length;
+
+    const qty = pickedByListIndex
+      ? state.intent?.quantity ?? state.quantity ?? 1
+      : parsedSelecting.quantityExplicit
+        ? parsedSelecting.quantity
+        : state.intent?.quantity ?? state.quantity ?? 1;
+
+    return applyProductSelection(state, picked, qty);
   }
 
   if (state.step === "confirming") {
@@ -252,6 +328,14 @@ export async function runWarungUserTextTurn(params: {
   // idle (and done already reset)
   const parsed = parseIntent(text);
   let intent = mergeIntent(state.intent, parsed, text);
+  const hintedQuery = extractCatalogQueryFromQuestion(text);
+  if (intent.intent === "unknown" && hintedQuery) {
+    intent = {
+      ...intent,
+      intent: "buy_product",
+      item: hintedQuery,
+    };
+  }
   state = { ...state, intent };
 
   const wantsBuy =
@@ -259,7 +343,26 @@ export async function runWarungUserTextTurn(params: {
     intent.intent === "buy_product" ||
     intent.intent === "send_item";
 
+  if (wantsBuy && isOutOfScopeShoppingRequest(text, intent)) {
+    return {
+      newState: { ...state, step: "idle", intent: null },
+      final: clarifyOutsideCatalogShopping(),
+    };
+  }
+
   if (!wantsBuy || intent.intent === "unknown") {
+    if (intent.intent === "unknown" && isNonCommerceMessage(text, intent)) {
+      return {
+        newState: { ...state, step: "idle", intent: null },
+        final: clarifyNonCommerceTopic(),
+      };
+    }
+    if (intent.intent === "unknown" && CATALOG_QUESTION_HINT.test(text)) {
+      return {
+        newState: { ...state, step: "idle", intent: null, searchResults: [] },
+        final: guideCatalogOverview(),
+      };
+    }
     return { newState: { ...state, step: "idle", intent }, final: guideUnknown() };
   }
 
@@ -296,7 +399,7 @@ export async function runWarungUserTextTurn(params: {
         intent,
       },
       final: {
-        content: `Belum ketemu item yang cocok di katalog saat ini. Coba kata kunci seperti **kopi**, **apel**, atau **indomie**.
+        content: `Belum ketemu di katalog **kopi & grocery** ini. Coba kata kunci seperti **kopi**, **espresso**, **apel**, **bayam**, **beras**, atau **indomie**.
 
 _${WARUNG_TAGLINE_ID}_`,
         toolUsages: [{ name: "find_items", status: "complete" }],

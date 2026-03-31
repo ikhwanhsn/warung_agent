@@ -11,33 +11,65 @@ export interface ParsedIntent {
   notes: string | null;
 }
 
-export type WarungStep = "idle" | "searching" | "selecting" | "confirming" | "paying" | "done";
+export type WarungStep =
+  | "idle"
+  | "searching"
+  | "selecting"
+  | "choosing_location"
+  | "reviewing"
+  | "confirming" // legacy — treated same as reviewing
+  | "paying"
+  | "done";
 
 export interface MockProduct {
   id: string;
   name: string;
   price: number;
   provider: string;
-  /** One-liner for product cards (mock “hype”) */
   hype?: string;
 }
 
-/** Persisted conversation state for the commerce flow */
+export interface MockStore {
+  id: string;
+  name: string;
+  address: string;
+  distanceKm: number;
+}
+
 export interface WarungConversationState {
   step: WarungStep;
   intent: ParsedIntent | null;
   selected_item: MockProduct | null;
   quantity: number;
   total_price: number;
-  /** Last search results (for selection UI and "yang murah") */
   searchResults: MockProduct[];
   order_id: string | null;
   transaction_id: string | null;
+  selected_store: MockStore | null;
+  nearbyStores: MockStore[];
 }
 
 export type CommerceAttachment =
   | { kind: "status"; message: string }
   | { kind: "products"; items: MockProduct[]; quantity: number }
+  | {
+      kind: "stores";
+      stores: MockStore[];
+      itemName: string;
+      quantity: number;
+      unitPrice: number;
+    }
+  | {
+      kind: "review";
+      itemName: string;
+      quantity: number;
+      totalPrice: number;
+      unitPrice: number;
+      storeName: string;
+      storeAddress: string;
+      distanceKm: number;
+      provider: string;
+    }
   | {
       kind: "confirmation";
       itemName: string;
@@ -57,4 +89,6 @@ export interface WarungAssistantPayload {
   commerce?: CommerceAttachment;
   toolUsages?: Array<{ name: string; status: "running" | "complete" | "error" }>;
   isStreaming?: boolean;
+  /** Signal the bot to send a QRIS payment image alongside this message. */
+  showQris?: boolean;
 }

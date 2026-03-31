@@ -1,8 +1,8 @@
-import type { MockProduct } from "./types";
+import type { MockProduct, MockStore } from "./types.js";
+import { generateMockProducts } from "./mockCatalogGenerated.js";
 
-/** Demo catalog: minuman kopi & grocery warung (SKU tetap, tidak ada kategori lain). */
-export const MOCK_CATALOG: MockProduct[] = [
-  // Coffee beverages and beans
+/** Hand-authored seed rows; catalog is extended to 1000+ items via generator. */
+const MOCK_CATALOG_SEED: MockProduct[] = [
   {
     id: "1",
     name: "Es Kopi Susu Gula Aren",
@@ -143,7 +143,6 @@ export const MOCK_CATALOG: MockProduct[] = [
     provider: "Morning Cup",
     hype: "Favorit pelanggan dengan profil rasa manis",
   },
-  // Grocery essentials
   {
     id: "21",
     name: "Beras Premium 5kg",
@@ -391,6 +390,96 @@ export const MOCK_CATALOG: MockProduct[] = [
   },
 ];
 
+/** Extra generated demo rows (deterministic). Total catalog = seed + this. */
+const GENERATED_PRODUCT_COUNT = 1000;
+
+export const MOCK_CATALOG: MockProduct[] = [
+  ...MOCK_CATALOG_SEED,
+  ...generateMockProducts(MOCK_CATALOG_SEED.length + 1, GENERATED_PRODUCT_COUNT),
+];
+
+/** Telegram-safe cap for one message when a query matches many rows. */
+export const MAX_PRODUCT_LIST_RESULTS = 50;
+
+// ─── Mock store data ────────────────────────────────────────────────
+
+interface StoreTemplate {
+  name: string;
+  address: string;
+  baseDistanceKm: number;
+  tags: string[];
+}
+
+const STORE_POOL: StoreTemplate[] = [
+  { name: "Alfamart Jl. Sudirman", address: "Jl. Jend. Sudirman No.12, Kel. Karet Tengsin", baseDistanceKm: 0.3, tags: ["grocery", "drinks", "instant"] },
+  { name: "Circle K Sabang", address: "Jl. H. Agus Salim No.58, Menteng", baseDistanceKm: 0.4, tags: ["grocery", "drinks", "instant"] },
+  { name: "Indomaret Jl. Gatot Subroto", address: "Jl. Gatot Subroto No.45, Menteng Dalam", baseDistanceKm: 0.5, tags: ["grocery", "drinks", "instant"] },
+  { name: "Toko Sembako Pak Andi", address: "Jl. Kebon Kacang III No.7, Tanah Abang", baseDistanceKm: 0.7, tags: ["grocery", "fresh"] },
+  { name: "Warung Kelontong Bu Sri", address: "Jl. Tanah Abang II No.18, Jakarta Pusat", baseDistanceKm: 0.9, tags: ["grocery"] },
+  { name: "Superindo Metro Thamrin", address: "Jl. MH Thamrin No.100, Thamrin City Lt.B1", baseDistanceKm: 1.2, tags: ["grocery", "drinks", "fresh"] },
+  { name: "Giant Express Kuningan", address: "Jl. Prof. Dr. Satrio, Kuningan City", baseDistanceKm: 1.8, tags: ["grocery", "drinks", "fresh"] },
+  { name: "Kopi Kenangan Grand Indonesia", address: "Grand Indonesia, West Mall Lt.1", baseDistanceKm: 0.4, tags: ["coffee"] },
+  { name: "Fore Coffee Sudirman Plaza", address: "Sudirman Plaza, Jl. Jend. Sudirman Kav.76", baseDistanceKm: 0.6, tags: ["coffee"] },
+  { name: "Tomoro Coffee Menteng", address: "Jl. HOS Cokroaminoto No.15, Menteng", baseDistanceKm: 0.8, tags: ["coffee"] },
+  { name: "Starbucks Pacific Place", address: "Pacific Place, SCBD Lot 3-5, Lt.GF", baseDistanceKm: 1.0, tags: ["coffee"] },
+  { name: "Pasar Tanah Abang", address: "Jl. Jatibaru Raya No.1, Tanah Abang", baseDistanceKm: 0.6, tags: ["fresh", "grocery"] },
+  { name: "Pasar Santa Modern", address: "Jl. Cisanggiri II No.2, Kebayoran Baru", baseDistanceKm: 1.5, tags: ["fresh", "grocery", "coffee"] },
+];
+
+function classifyProduct(product: MockProduct): string[] {
+  const n = product.name.toLowerCase();
+  if (
+    /\b(es kopi|americano|cappuccino|latte|flat white|mocha|macchiato|cold brew|espresso|affogato|cortado|piccolo|long black|kopi susu|matcha.*latte|chocolate.*latte)\b/i.test(
+      n,
+    )
+  ) {
+    return ["coffee"];
+  }
+  if (/^(es|hot|ice|signature|double shot|extra cream|classic|house)\s+/i.test(n.trim())) {
+    return ["coffee"];
+  }
+  if (/\b(kopi arabica|arabica|beans|biji|roast|drip|capsule|cold brew concentrate|v60|filter|oat milk|fresh milk|vanilla syrup)\b/i.test(n)) {
+    return ["coffee", "grocery"];
+  }
+  if (
+    /\b(bayam|kangkung|sawi|wortel|kentang|tomat|terong|labu|oyong|cabai|bawang|brokoli|kembang kol|selada|seledri|kacang panjang|buncis|jamur|paprika|apel|pisang|jeruk|alpukat|strawberry|pir|ayam|daging|ikan|telur|tahu|tempe|udang)\b/i.test(
+      n,
+    )
+  ) {
+    return ["fresh", "grocery"];
+  }
+  return ["grocery"];
+}
+
+/** True when the catalog row is fresh fruit (not drinks that mention "buah" in marketing copy only). */
+function isFruitProduct(p: MockProduct): boolean {
+  const n = p.name.toLowerCase();
+  return /\b(apel|pisang|jeruk|alpukat|strawberry|stroberi|blueberry|pir|nanas|semangka|melon|anggur|pepaya|leci|duku|kiwi|mangga|salak|jambu|buah naga)\b/i.test(
+    n,
+  );
+}
+
+/** User is browsing fruit only e.g. "ada buah apa", "buah apa saja". */
+const FRUIT_BROWSE_RE =
+  /\b(ada\s+)?buah\s+(apa|aja|saja)\b|\b(macam|jenis|list)\s+buah\b|^\s*buah\s+(apa|aja)\s*$/i;
+
+export function findNearbyStores(product: MockProduct): MockStore[] {
+  const tags = classifyProduct(product);
+  const matching = STORE_POOL.filter((s) => tags.some((t) => s.tags.includes(t)));
+
+  const stores: MockStore[] = matching.map((s, i) => ({
+    id: `store-${i + 1}`,
+    name: s.name,
+    address: s.address,
+    distanceKm: Math.max(0.1, parseFloat((s.baseDistanceKm + (Math.random() * 0.3 - 0.15)).toFixed(1))),
+  }));
+
+  stores.sort((a, b) => a.distanceKm - b.distanceKm);
+  return stores.slice(0, 5);
+}
+
+// ─── Utility ────────────────────────────────────────────────────────
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -414,12 +503,13 @@ function filterByQuery(catalog: MockProduct[], qRaw: string): MockProduct[] {
   });
 }
 
-/**
- * Mock product search — kopi & grocery only (same catalog as demo warung).
- */
 export function findItems(input: FindItemsInput): MockProduct[] {
   const q = input.query.trim();
   if (!q) return [...MOCK_CATALOG];
+  const ql = q.toLowerCase();
+  if (FRUIT_BROWSE_RE.test(ql)) {
+    return MOCK_CATALOG.filter(isFruitProduct);
+  }
   return filterByQuery(MOCK_CATALOG, q);
 }
 
@@ -428,6 +518,7 @@ export interface CreateOrderInput {
   quantity: number;
   total_price: number;
   provider: string;
+  store_name?: string;
 }
 
 export interface CreateOrderResult {
@@ -462,7 +553,6 @@ const PAYMENT_MESSAGES = [
   "Pembayaran selesai. Lanjut ke proses pemenuhan pesanan.",
 ];
 
-/** Simulated payment latency (1–2s). */
 export async function executePayment(input: ExecutePaymentInput): Promise<ExecutePaymentResult> {
   const ms = 1000 + Math.floor(Math.random() * 1000);
   await sleep(ms);
@@ -475,7 +565,10 @@ export async function executePayment(input: ExecutePaymentInput): Promise<Execut
   };
 }
 
-/** Short delay for search UX. */
 export async function delaySearch(): Promise<void> {
   await sleep(650 + Math.floor(Math.random() * 700));
+}
+
+export async function delayLocationSearch(): Promise<void> {
+  await sleep(500 + Math.floor(Math.random() * 500));
 }

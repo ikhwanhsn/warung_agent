@@ -66,6 +66,7 @@ import { sendTempoPayout } from "./libs/tempoPayout.js";
 import connectMongoose from "./config/mongoose.js";
 import { buildMppDiscoveryOpenApi } from "./libs/mppDiscoveryOpenApi.js";
 import { X402_DISCOVERY_RESOURCE_PATHS } from "./config/x402DiscoveryResourcePaths.js";
+import { createWarungCommerceRouter } from "./routes/warungCommerce.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -737,6 +738,8 @@ app.use("/agent/tools", await createAgentToolsRouter());
 app.use("/agent/marketplace/prompts", await createUserPromptsRouter());
 app.use("/agent/marketplace", await createAgentMarketplaceRouter());
 app.use("/agent/leaderboard", await createAgentLeaderboardRouter());
+// Warung mock commerce — kopi & grocery catalog only (same logic as ai-agent warung flow)
+app.use("/warung", await createWarungCommerceRouter());
 app.use("/token-god-mode", await createV2TokenGodModeRouter());
 app.use("/solana-agent", await createSolanaAgentRouter());
 app.use("/trending-jupiter", await createV2TrendingJupiterRouter());
