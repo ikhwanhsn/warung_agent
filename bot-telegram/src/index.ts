@@ -120,8 +120,7 @@ async function main() {
   }
   const mongoUri = process.env.MONGODB_URI?.trim();
   if (!mongoUri) {
-    console.error("Missing MONGODB_URI. Set it in bot-telegram/.env to persist purchase history.");
-    process.exit(1);
+    console.warn("[warung-bot-telegram] Missing MONGODB_URI. Purchase history will use in-memory fallback.");
   }
 
   const allowedChats = parseAllowedChatIds();

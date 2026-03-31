@@ -1644,16 +1644,43 @@ const TOKEN_SYNONYMS: Record<string, string[]> = {
   mie: ["mi", "indomie", "sedaap"],
   indomi: ["indomie"],
   kopi: ["coffee", "espresso", "americano", "latte", "cappuccino"],
+  coffee: ["kopi", "espresso", "americano", "latte", "cappuccino"],
   susu: ["milk", "uht"],
   telur: ["egg"],
   beras: ["rice"],
   pedas: ["cabai", "sambal"],
   stroberi: ["strawberry"],
   strawberry: ["stroberi"],
+  apple: ["apel"],
+  apel: ["apple"],
+  banana: ["pisang"],
+  pisang: ["banana"],
+  orange: ["jeruk"],
+  jeruk: ["orange"],
+  avocado: ["alpukat"],
+  alpukat: ["avocado"],
+  pear: ["pir"],
+  pir: ["pear"],
   buah: ["apel", "pisang", "jeruk", "alpukat", "pir", "strawberry", "stroberi"],
   sayur: ["bayam", "kangkung", "sawi", "wortel", "kentang", "tomat", "brokoli"],
   ayam: ["fillet", "nugget", "sosis"],
 };
+
+const GENERIC_QUERY_TOKENS = new Set([
+  "produk",
+  "barang",
+  "item",
+  "makanan",
+  "minuman",
+  "grocery",
+  "sembako",
+  "buah",
+  "sayur",
+  "kopi",
+  "coffee",
+  "snack",
+  "drink",
+]);
 
 function normalizeToken(raw: string): string {
   return raw
@@ -1684,6 +1711,26 @@ function expandQueryTokens(tokens: string[]): string[] {
     }
   }
   return Array.from(expanded);
+}
+
+function buildStrictTokenGroups(tokens: string[]): string[][] {
+  return tokens
+    .filter((token) => token.length >= 3 && !GENERIC_QUERY_TOKENS.has(token))
+    .map((token) => {
+      const variants = new Set<string>([token]);
+      const synonyms = TOKEN_SYNONYMS[token] ?? [];
+      for (const synonym of synonyms) {
+        const normalized = normalizeToken(synonym);
+        if (normalized.length >= 2) variants.add(normalized);
+      }
+      return Array.from(variants);
+    });
+}
+
+function matchesStrictGroups(product: MockProduct, strictGroups: string[][]): boolean {
+  if (strictGroups.length === 0) return true;
+  const hay = `${product.name} ${product.provider}`.toLowerCase();
+  return strictGroups.every((group) => group.some((variant) => hay.includes(variant)));
 }
 
 function scoreProductMatch(
@@ -1738,7 +1785,9 @@ function filterByQuery(catalog: MockProduct[], qRaw: string): MockProduct[] {
 
   const queryTokens = tokenizeForSearch(q);
   const expandedTokens = expandQueryTokens(queryTokens);
+  const strictGroups = buildStrictTokenGroups(queryTokens);
   const ranked = catalog
+    .filter((product) => matchesStrictGroups(product, strictGroups))
     .map((product) => ({
       product,
       score: scoreProductMatch(product, queryTokens, expandedTokens, q),
@@ -1750,6 +1799,7 @@ function filterByQuery(catalog: MockProduct[], qRaw: string): MockProduct[] {
   if (ranked.length > 0) return ranked;
 
   return catalog.filter((p) => {
+    if (!matchesStrictGroups(p, strictGroups)) return false;
     const hay = `${p.name} ${p.provider} ${p.hype ?? ""}`.toLowerCase();
     return expandedTokens.some((tok) => hay.includes(tok));
   });
