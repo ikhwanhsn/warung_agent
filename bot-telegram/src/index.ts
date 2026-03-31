@@ -72,6 +72,37 @@ function createSerialQueue() {
   };
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function describeTelegramLaunchError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+async function launchBotWithRetry(bot: Telegraf): Promise<void> {
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      // Ensure polling mode works even if webhook was previously configured.
+      await bot.telegram.deleteWebhook({ drop_pending_updates: false });
+      await bot.launch({ dropPendingUpdates: false });
+      return;
+    } catch (err) {
+      const message = describeTelegramLaunchError(err);
+      const isConflict = /409|Conflict|terminated by other getUpdates request/i.test(message);
+      const isLast = attempt === maxAttempts;
+      console.error(
+        `[warung-bot-telegram] launch attempt ${attempt}/${maxAttempts} failed: ${message}`,
+      );
+      if (isLast) throw err;
+      const waitMs = isConflict ? attempt * 5000 : attempt * 2000;
+      await wait(waitMs);
+    }
+  }
+}
+
 const HELP_TEXT = `Warung Agent di Telegram untuk kopi dan kebutuhan warung.
 
 Ketik kebutuhan dalam bahasa Indonesia. Contoh: beli kopi 2, beli beras 1, beli indomie atau bayam atau telur, cari yang paling murah.
@@ -481,7 +512,7 @@ async function main() {
   });
 
   startOptionalHealthServer();
-  await bot.launch();
+  await launchBotWithRetry(bot);
   console.log("[warung-bot-telegram] polling started (Jatevo LLM required for all user-visible text)");
 
   process.once("SIGINT", async () => {
