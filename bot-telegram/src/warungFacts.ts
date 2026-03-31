@@ -21,6 +21,11 @@ export function buildAuthoritativeFacts(params: {
   const s = params.newState;
   const search = s.searchResults.map(slimProduct);
   const stores = s.nearbyStores.map(slimStore);
+  const cartItems = (s.cart_items ?? []).map((line) => ({
+    product: slimProduct(line.product),
+    quantity: line.quantity,
+    totalPriceIdr: line.totalPrice,
+  }));
 
   return {
     schema: "warung_agent_facts_v1",
@@ -31,6 +36,7 @@ export function buildAuthoritativeFacts(params: {
     selectedItem: s.selected_item ? slimProduct(s.selected_item) : null,
     quantity: s.quantity,
     totalPriceIdr: s.total_price,
+    cartItems,
     orderId: s.order_id,
     transactionId: s.transaction_id,
     selectedStore: s.selected_store ? slimStore(s.selected_store) : null,

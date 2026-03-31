@@ -30,6 +30,7 @@ import {
   answerScopedQuestionWithGemini,
 } from "../jatevoClient.js";
 import type {
+  CartLineItem,
   CommerceAttachment,
   MockProduct,
   MockStore,
@@ -59,6 +60,7 @@ export function initialWarungState(): WarungConversationState {
     selected_item: null,
     quantity: 1,
     total_price: 0,
+    cart_items: [],
     searchResults: [],
     order_id: null,
     transaction_id: null,
@@ -71,6 +73,7 @@ export function prepareStateForUserMessage(state: WarungConversationState): Waru
   if (state.step === "done") return initialWarungState();
   return {
     ...state,
+    cart_items: state.cart_items ?? [],
     selected_store: state.selected_store ?? null,
     nearbyStores: state.nearbyStores ?? [],
   };
@@ -337,6 +340,40 @@ function buildReviewCommerce(
   };
 }
 
+function computeCartTotal(cartItems: CartLineItem[]): number {
+  return cartItems.reduce((sum, line) => sum + line.totalPrice, 0);
+}
+
+function upsertCartItem(cartItems: CartLineItem[], product: MockProduct, quantity: number): CartLineItem[] {
+  const next = cartItems.slice();
+  const index = next.findIndex((line) => line.product.id === product.id);
+  if (index === -1) {
+    next.push({ product, quantity, totalPrice: product.price * quantity });
+    return next;
+  }
+  const existing = next[index]!;
+  const mergedQty = Math.max(1, existing.quantity + quantity);
+  next[index] = { product: existing.product, quantity: mergedQty, totalPrice: existing.product.price * mergedQty };
+  return next;
+}
+
+function buildCartReviewText(cartItems: CartLineItem[], store: MockStore | null): string {
+  const lines = cartItems.map((line, i) => {
+    return `${i + 1}. ${line.product.name} x${line.quantity} - ${formatRp(line.totalPrice)}`;
+  });
+  const total = computeCartTotal(cartItems);
+  const storeText = store
+    ? `\n📍 **${store.name}**\n${store.address}\nJarak: ${store.distanceKm} km\n`
+    : "";
+  return `🧾 **Ringkasan Belanja**
+
+${lines.join("\n")}
+
+Total belanja: **${formatRp(total)}**${storeText}
+Ketik item lain untuk tambah belanja, atau ketik **ya** untuk bayar sekaligus.
+Ketik **batal** untuk membatalkan checkout.`;
+}
+
 // ─── Static reply payloads ──────────────────────────────────────────
 
 function guideUnknown(): WarungAssistantPayload {
@@ -519,20 +556,23 @@ export function applyProductSelection(
   quantity: number,
 ): SelectProductResult {
   const total = product.price * quantity;
+  const cartItems = upsertCartItem(state.cart_items ?? [], product, quantity);
+  const cartTotal = computeCartTotal(cartItems);
   const newState: WarungConversationState = {
     ...state,
     step: "reviewing",
     selected_item: product,
     quantity,
-    total_price: total,
+    total_price: cartTotal,
+    cart_items: cartItems,
   };
 
   if (state.selected_store) {
     return {
       newState,
       final: {
-        content: buildReviewText(product, quantity, total, state.selected_store),
-        commerce: buildReviewCommerce(product, quantity, total, state.selected_store),
+        content: buildCartReviewText(cartItems, state.selected_store),
+        commerce: buildReviewCommerce(product, quantity, cartTotal, state.selected_store),
       },
     };
   }
@@ -553,8 +593,9 @@ async function transitionToStoreSelection(
   qty: number,
   patch: PatchFn,
 ): Promise<TurnResult> {
-  const total = product.price * qty;
-  state = { ...state, selected_item: product, quantity: qty, total_price: total };
+  const cartItems = upsertCartItem(state.cart_items ?? [], product, qty);
+  const cartTotal = computeCartTotal(cartItems);
+  state = { ...state, selected_item: product, quantity: qty, total_price: cartTotal, cart_items: cartItems };
 
   patch({
     content: `**${product.name}** × ${qty} dipilih! ${LOADING_COPY.findStores} 📍`,
@@ -570,7 +611,7 @@ async function transitionToStoreSelection(
     return {
       newState: { ...state, step: "reviewing", nearbyStores: [], selected_store: null },
       final: {
-        content: `**${product.name}** × ${qty} = **${formatRp(total)}**\n\nToko terdekat tidak tersedia (demo). Ketik **ya** untuk lanjut bayar.`,
+        content: `${buildCartReviewText(cartItems, null)}\n\nToko terdekat tidak tersedia (demo).`,
       },
     };
   }
@@ -580,8 +621,8 @@ async function transitionToStoreSelection(
   return {
     newState: { ...state, step: "reviewing", nearbyStores: stores, selected_store: nearestStore },
     final: {
-      content: buildReviewText(product, qty, total, nearestStore),
-      commerce: buildReviewCommerce(product, qty, total, nearestStore),
+      content: buildCartReviewText(cartItems, nearestStore),
+      commerce: buildReviewCommerce(product, qty, cartTotal, nearestStore),
       toolUsages: [{ name: "find_nearby_stores", status: "complete" }],
       isStreaming: false,
       showQris: true,
@@ -609,6 +650,9 @@ function transitionToReview(state: WarungConversationState, store: MockStore): T
 
 async function processPaymentFlow(state: WarungConversationState, patch: PatchFn): Promise<TurnResult> {
   state = { ...state, step: "paying" as const };
+  const cartItems = state.cart_items ?? [];
+  const totalAmount = cartItems.length > 0 ? computeCartTotal(cartItems) : state.total_price;
+  const orderItem = state.selected_item ?? cartItems[0]?.product ?? null;
 
   patch({
     content: `${LOADING_COPY.processPayment} ⏳`,
@@ -621,14 +665,14 @@ async function processPaymentFlow(state: WarungConversationState, patch: PatchFn
   });
 
   const order = createOrder({
-    item_id: state.selected_item?.id ?? "",
-    quantity: state.quantity,
-    total_price: state.total_price,
-    provider: state.selected_item?.provider ?? "",
+    item_id: orderItem?.id ?? "cart",
+    quantity: cartItems.reduce((sum, line) => sum + line.quantity, 0) || state.quantity,
+    total_price: totalAmount,
+    provider: orderItem?.provider ?? "multi-provider",
     store_name: state.selected_store?.name,
   });
 
-  const paid = await executePayment({ amount: state.total_price });
+  const paid = await executePayment({ amount: totalAmount });
 
   const storeLine = state.selected_store ? `\nToko: **${state.selected_store.name}**` : "";
 
@@ -639,6 +683,7 @@ async function processPaymentFlow(state: WarungConversationState, patch: PatchFn
       selected_item: null,
       quantity: 1,
       total_price: 0,
+      cart_items: [],
       searchResults: [],
       order_id: order.order_id,
       transaction_id: paid.transaction_id,
@@ -646,7 +691,7 @@ async function processPaymentFlow(state: WarungConversationState, patch: PatchFn
       nearbyStores: [],
     },
     final: {
-      content: `✅ **Pesanan berhasil dipesan.**\n\nID Pesanan: **${order.order_id}**\nID Transaksi: **${paid.transaction_id}**${storeLine}\n\n${paid.message}\n\nMau belanja lagi? Tinggal kirim kebutuhan berikutnya.\n\n_${WARUNG_TAGLINE_ID}_`,
+      content: `✅ **Pesanan berhasil dipesan.**\n\nID Pesanan: **${order.order_id}**\nID Transaksi: **${paid.transaction_id}**${storeLine}\nTotal dibayar: **${formatRp(totalAmount)}**\n\n${paid.message}\n\nMau belanja lagi? Tinggal kirim kebutuhan berikutnya.\n\n_${WARUNG_TAGLINE_ID}_`,
       commerce: {
         kind: "success",
         orderId: order.order_id,
@@ -813,19 +858,25 @@ export async function runWarungUserTextTurn(params: {
     // Quantity change
     const newQty = detectQuantityChange(text, state);
     if (newQty !== null && state.selected_item) {
-      const newTotal = state.selected_item.price * newQty;
+      const updatedCart = (state.cart_items ?? []).map((line) =>
+        line.product.id === state.selected_item!.id
+          ? { ...line, quantity: newQty, totalPrice: state.selected_item!.price * newQty }
+          : line,
+      );
+      const newTotal = computeCartTotal(updatedCart);
       const updatedState: WarungConversationState = {
         ...state,
         step: "reviewing",
         quantity: newQty,
         total_price: newTotal,
+        cart_items: updatedCart,
       };
 
       if (state.selected_store) {
         return {
           newState: updatedState,
           final: {
-            content: buildReviewText(state.selected_item, newQty, newTotal, state.selected_store),
+            content: buildCartReviewText(updatedCart, state.selected_store),
             commerce: buildReviewCommerce(state.selected_item, newQty, newTotal, state.selected_store),
           },
         };
@@ -833,7 +884,7 @@ export async function runWarungUserTextTurn(params: {
       return {
         newState: updatedState,
         final: {
-          content: `Jumlah diubah ke **${newQty}**. Total: **${formatRp(newTotal)}**.\n\nKetik **ya** untuk bayar atau **batal** untuk membatalkan.`,
+          content: `Jumlah ${state.selected_item.name} diubah ke **${newQty}**.\n\n${buildCartReviewText(updatedCart, state.selected_store)}`,
         },
       };
     }
@@ -858,7 +909,14 @@ export async function runWarungUserTextTurn(params: {
       reParsed.item;
 
     if (wantsNewViaRegex) {
-      state = { ...initialWarungState(), intent: reParsed };
+      state = {
+        ...state,
+        step: "idle",
+        intent: reParsed,
+        selected_item: null,
+        quantity: reParsed.quantity,
+        searchResults: [],
+      };
       // Fall through to idle flow
     } else if (isGeminiConfigured()) {
       try {
@@ -891,7 +949,10 @@ export async function runWarungUserTextTurn(params: {
         }
         if (smart.action === "buy" && smart.item) {
           state = {
-            ...initialWarungState(),
+            ...state,
+            step: "idle",
+            selected_item: null,
+            searchResults: [],
             intent: { intent: "buy_product", item: smart.item, quantity: smart.quantity ?? 1, quantityExplicit: Boolean(smart.quantity), location: null, budget: null, notes: null },
           };
           // Fall through to idle flow

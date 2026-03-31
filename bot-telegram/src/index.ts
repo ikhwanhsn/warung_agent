@@ -365,21 +365,44 @@ async function main() {
 
         if (
           final.commerce?.kind === "success" &&
-          state.selected_item &&
           Number.isFinite(state.total_price) &&
-          state.total_price > 0
+          state.total_price > 0 &&
+          ((state.cart_items?.length ?? 0) > 0 || state.selected_item)
         ) {
+          const cart = state.cart_items ?? [];
+          const summaryName =
+            cart.length > 0
+              ? cart.length === 1
+                ? cart[0]!.product.name
+                : `${cart.length} item (${cart.slice(0, 2).map((line) => line.product.name).join(", ")}${cart.length > 2 ? ", ..." : ""})`
+              : state.selected_item!.name;
+          const totalQty =
+            cart.length > 0
+              ? cart.reduce((sum, line) => sum + line.quantity, 0)
+              : state.quantity;
+          const provider =
+            cart.length > 0
+              ? cart.length === 1
+                ? cart[0]!.product.provider
+                : "multi-provider"
+              : state.selected_item!.provider;
+          const productId =
+            cart.length > 0
+              ? cart.length === 1
+                ? cart[0]!.product.id
+                : `cart-${cart.length}-items`
+              : state.selected_item!.id;
           purchaseHistory.savePurchase({
             chatId,
             telegramUserId: ctx.from?.id ?? null,
             telegramUsername: ctx.from?.username ?? null,
             orderId: final.commerce.orderId,
             transactionId: final.commerce.transactionId,
-            productId: state.selected_item.id,
-            productName: state.selected_item.name,
-            quantity: state.quantity,
+            productId,
+            productName: summaryName,
+            quantity: totalQty,
             totalPrice: state.total_price,
-            provider: state.selected_item.provider,
+            provider,
             storeName: state.selected_store?.name ?? null,
           });
         }

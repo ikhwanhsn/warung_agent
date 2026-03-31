@@ -1,4 +1,5 @@
 export type {
+  CartLineItem,
   CommerceAttachment,
   MockProduct,
   MockStore,

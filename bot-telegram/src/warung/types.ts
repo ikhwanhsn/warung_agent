@@ -28,6 +28,12 @@ export interface MockProduct {
   hype?: string;
 }
 
+export interface CartLineItem {
+  product: MockProduct;
+  quantity: number;
+  totalPrice: number;
+}
+
 export interface MockStore {
   id: string;
   name: string;
@@ -41,6 +47,7 @@ export interface WarungConversationState {
   selected_item: MockProduct | null;
   quantity: number;
   total_price: number;
+  cart_items: CartLineItem[];
   searchResults: MockProduct[];
   order_id: string | null;
   transaction_id: string | null;
