@@ -1,3 +1,4 @@
+import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
@@ -22,6 +23,27 @@ import { buildAuthoritativeFacts, buildPatchFacts } from "./warungFacts.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
+/** PaaS web services (e.g. Render) expect a listener on PORT; long-polling bots otherwise fail deploy health checks. */
+function startOptionalHealthServer(): void {
+  const portRaw = process.env.PORT?.trim();
+  if (!portRaw) return;
+  const port = Number(portRaw);
+  if (!Number.isFinite(port) || port <= 0) return;
+
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("ok");
+  });
+
+  server.on("error", (err) => {
+    console.error("[warung-bot-telegram] health server error:", err);
+  });
+
+  server.listen(port, "0.0.0.0", () => {
+    console.log(`[warung-bot-telegram] health check listening on :${port}`);
+  });
+}
 
 function parseAllowedChatIds(): Set<number> | null {
   const raw = process.env.TELEGRAM_ALLOWED_CHAT_IDS?.trim();
@@ -318,6 +340,7 @@ async function main() {
     console.error("[warung-bot-telegram] bot error", err);
   });
 
+  startOptionalHealthServer();
   await bot.launch();
   console.log("[warung-bot-telegram] polling started (Jatevo LLM required for all user-visible text)");
 

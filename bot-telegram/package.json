@@ -3,20 +3,24 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc",
+    "prestart": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
+    "@types/node": "^22.10.0",
     "dotenv": "^16.4.7",
     "qrcode": "^1.5.4",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "typescript": "^5.7.2"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
     "@types/qrcode": "^1.5.5",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "tsx": "^4.19.2"
   }
 }
