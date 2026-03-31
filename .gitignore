@@ -12,3 +12,7 @@ dist/
 # Env
 .env
 .env.*.local
+
+# Local SQLite sidecar/runtime files (Telegram bot)
+bot-telegram/data/*.sqlite
+bot-telegram/data/*.sqlite-*

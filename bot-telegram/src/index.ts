@@ -91,7 +91,7 @@ function formatRp(n: number): string {
 }
 
 function buildHistoryReply(
-  rows: ReturnType<PurchaseHistoryRepository["getRecentByChat"]>,
+  rows: Awaited<ReturnType<PurchaseHistoryRepository["getRecentByChat"]>>,
 ): string {
   if (rows.length === 0) {
     return "Belum ada riwayat pembelian di chat ini.\n\nCoba beli produk dulu, lalu ketik /history lagi.";
@@ -118,11 +118,15 @@ async function main() {
     );
     process.exit(1);
   }
+  const mongoUri = process.env.MONGODB_URI?.trim();
+  if (!mongoUri) {
+    console.error("Missing MONGODB_URI. Set it in bot-telegram/.env to persist purchase history.");
+    process.exit(1);
+  }
 
   const allowedChats = parseAllowedChatIds();
-  const purchaseHistory = new PurchaseHistoryRepository(
-    path.resolve(__dirname, "../data/purchase-history.sqlite"),
-  );
+  const purchaseHistory = new PurchaseHistoryRepository(mongoUri);
+  await purchaseHistory.init();
   const stateByChat = new Map<number, WarungConversationState>();
   const llmHistoryByChat = new Map<number, GeminiChatTurn[]>();
   const lastSeenByChat = new Map<number, number>();
@@ -222,7 +226,7 @@ async function main() {
   });
 
   bot.command("history", async (ctx) => {
-    const rows = purchaseHistory.getRecentByChat(ctx.chat.id, 10);
+    const rows = await purchaseHistory.getRecentByChat(ctx.chat.id, 10);
     await ctx.reply(buildHistoryReply(rows));
   });
 
@@ -285,7 +289,7 @@ async function main() {
         return;
       }
       if (HISTORY_TRIGGER_RE.test(text)) {
-        const rows = purchaseHistory.getRecentByChat(chatId, 10);
+        const rows = await purchaseHistory.getRecentByChat(chatId, 10);
         await ctx.reply(buildHistoryReply(rows));
         return;
       }
@@ -392,7 +396,7 @@ async function main() {
                 ? cart[0]!.product.id
                 : `cart-${cart.length}-items`
               : state.selected_item!.id;
-          purchaseHistory.savePurchase({
+          await purchaseHistory.savePurchase({
             chatId,
             telegramUserId: ctx.from?.id ?? null,
             telegramUsername: ctx.from?.username ?? null,
@@ -481,8 +485,14 @@ async function main() {
   await bot.launch();
   console.log("[warung-bot-telegram] polling started (Jatevo LLM required for all user-visible text)");
 
-  process.once("SIGINT", () => bot.stop("SIGINT"));
-  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+  process.once("SIGINT", async () => {
+    bot.stop("SIGINT");
+    await purchaseHistory.close();
+  });
+  process.once("SIGTERM", async () => {
+    bot.stop("SIGTERM");
+    await purchaseHistory.close();
+  });
 }
 
 main().catch((e) => {
