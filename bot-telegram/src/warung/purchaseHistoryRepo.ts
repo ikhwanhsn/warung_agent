@@ -47,9 +47,34 @@ export class PurchaseHistoryRepository {
     const parentDir = path.dirname(dbFilePath);
     fs.mkdirSync(parentDir, { recursive: true });
 
-    this.db = new Database(dbFilePath);
-    this.db.pragma("journal_mode = WAL");
-    this.db.exec(`
+    this.db = this.createDatabase(dbFilePath);
+  }
+
+  private createDatabase(dbFilePath: string): Database.Database {
+    try {
+      const db = this.openDatabaseWithRecovery(dbFilePath);
+      this.ensureSchema(db);
+      return db;
+    } catch (err) {
+      const sqliteErr = err as { code?: string; message?: string };
+      const recoverableIoErr =
+        sqliteErr.code?.startsWith("SQLITE_IOERR") === true ||
+        sqliteErr.message?.includes("SQLITE_IOERR") === true;
+      if (!recoverableIoErr) {
+        throw err;
+      }
+
+      console.warn(
+        "[warung-bot-telegram] Purchase history DB unavailable on disk. Falling back to in-memory DB.",
+      );
+      const db = new Database(":memory:");
+      this.ensureSchema(db);
+      return db;
+    }
+  }
+
+  private ensureSchema(db: Database.Database): void {
+    db.exec(`
       CREATE TABLE IF NOT EXISTS purchase_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         chat_id INTEGER NOT NULL,
@@ -69,6 +94,39 @@ export class PurchaseHistoryRepository {
       CREATE INDEX IF NOT EXISTS idx_purchase_history_chat_created
       ON purchase_history(chat_id, created_at DESC);
     `);
+  }
+
+  private openDatabaseWithRecovery(dbFilePath: string): Database.Database {
+    const open = (): Database.Database => new Database(dbFilePath);
+    let db = open();
+    try {
+      db.pragma("journal_mode = WAL");
+      return db;
+    } catch (err) {
+      db.close();
+
+      // On some Windows setups, stale SQLite sidecar files can trigger SQLITE_IOERR_DELETE.
+      const sqliteErr = err as { code?: string; message?: string };
+      const isDeleteIoErr =
+        sqliteErr.code === "SQLITE_IOERR_DELETE" ||
+        sqliteErr.message?.includes("SQLITE_IOERR_DELETE") === true;
+      if (!isDeleteIoErr) {
+        throw err;
+      }
+
+      for (const suffix of ["-journal", "-wal", "-shm"]) {
+        const sidecar = `${dbFilePath}${suffix}`;
+        try {
+          if (fs.existsSync(sidecar)) fs.unlinkSync(sidecar);
+        } catch {
+          // Best-effort cleanup; fallback open below may still work.
+        }
+      }
+
+      db = open();
+      db.pragma("journal_mode = DELETE");
+      return db;
+    }
   }
 
   savePurchase(input: PurchaseRecordInput): void {
